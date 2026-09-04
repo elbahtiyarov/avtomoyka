@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Автомойка — журнал обслуживания</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Экран входа -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="brand" style="margin-bottom:20px;justify-content:center;">
+      <div class="brand-icon">🚗</div>
+      <div><div class="brand-title">Автомойка</div><div class="brand-sub">Журнал обслуживания</div></div>
+    </div>
+    <div id="loginError" class="error-state" style="display:none;"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label>Логин</label>
+        <input type="text" id="lUsername" required placeholder="напр. admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="lPassword" required placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button type="submit" class="save-btn">Войти</button>
+    </form>
+  </div>
+</div>
+
+<div class="layout" id="appLayout" style="display:none;">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">🚗</div>
+      <div><div class="brand-title">Автомойка</div><div class="brand-sub">Журнал обслуживания</div></div>
+    </div>
+    <div class="nav-item active">📋 Все записи</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openServicesPanel()">🧴 Услуги</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openClientsPanel()">👤 Клиенты</div>
+    <div class="nav-item" id="loyaltyNavItem" style="display:none;cursor:pointer;" onclick="openLoyaltySettings()">🎁 Бонусы</div>
+    <div class="nav-item" id="usersNavItem" style="display:none;cursor:pointer;" onclick="openUsers()">👥 Пользователи</div>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div>
+          <div class="user-name" id="currentUserName">—</div>
+          <div class="user-role" id="currentUserRole">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()">Выйти</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="mobile-bar">
+      <div class="mobile-bar-left">
+        <div class="mobile-bar-icon">🚗</div>
+        <div class="mobile-title">Автомойка</div>
+      </div>
+      <div class="mobile-bar-right">
+        <button class="logout-btn" onclick="openClientsPanel()">👤</button>
+        <button class="logout-btn" onclick="openServicesPanel()">🧴</button>
+        <button class="logout-btn" onclick="logout()">Выйти</button>
+      </div>
+    </div>
+
+    <div class="main-inner">
+      <div class="main-header">
+        <div>
+          <div class="main-title-h">Журнал обслуживания</div>
+          <div class="main-title-sub" id="dateLabel">—</div>
+        </div>
+        <button class="add-btn" onclick="openForm()">+ Новая запись</button>
+      </div>
+
+      <div class="filter-bar">
+        <div class="filter-field">
+          <label>Дата от</label>
+          <input type="date" id="filterFrom" onchange="applyFilters()">
+        </div>
+        <div class="filter-field">
+          <label>Дата до</label>
+          <input type="date" id="filterTo" onchange="applyFilters()">
+        </div>
+        <div class="filter-field filter-field-search">
+          <label>Поиск</label>
+          <input type="text" id="filterQuery" placeholder="марка, номер, кто принял, бокс…" oninput="applyFiltersDebounced()">
+        </div>
+        <button class="filter-clear" onclick="clearFilters()">Сбросить</button>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Машин сегодня</div>
+          <div class="kpi-value" id="kpiCars">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Средний чек</div>
+          <div class="kpi-value" id="kpiAvg">0 ₸</div>
+        </div>
+        <div class="kpi-highlight">
+          <div class="kpi-label">Выручка сегодня</div>
+          <div class="kpi-value" id="kpiRevenue">0 ₸</div>
+        </div>
+      </div>
+
+      <div id="errorState" class="error-state" style="display:none;"></div>
+      <div id="loadingState" class="loading">Загрузка…</div>
+      <div id="emptyState" class="empty-state" style="display:none;">
+        Пока нет записей — добавьте первую через кнопку «Новая запись»
+      </div>
+
+      <div class="table-wrap" id="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Дата</th><th>Марка авто</th><th>Номер авто</th><th>Бокс</th><th>Услуги</th><th>Цена</th><th>Кто принял</th><th>Подпись</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card-list" id="cardList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка новой записи -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeForm()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Новая запись</div>
+      <button class="close-btn" onclick="closeForm()">✕</button>
+    </div>
+    <form id="recForm">
+      <div class="field-row">
+        <div class="field"><label>Дата</label><input type="date" id="fDate" required></div>
+        <div class="field"><label>Цена, ₸</label><input type="number" id="fPrice" min="0" required placeholder="0"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Марка авто</label><input type="text" id="fBrand" required placeholder="напр. Toyota Camry"></div>
+        <div class="field"><label>Номер авто</label><input type="text" id="fNumber" required placeholder="напр. 123 ABC 02"></div>
+      </div>
+
+      <div class="field" id="loyaltySection">
+        <label>Телефон клиента (бонусы, необязательно)</label>
+        <input type="text" id="fClientPhone" placeholder="напр. +7 707 123 45 67" oninput="lookupClientDebounced()">
+        <div id="clientCard" class="client-card" style="display:none;"></div>
+      </div>
+
+      <div class="field">
+        <label>Бокс</label>
+        <select id="fBay" required></select>
+        <div class="add-service-row" style="margin-top:6px;">
+          <input type="text" id="newBayName" placeholder="Новый бокс, напр. Бокс 5">
+          <button type="button" onclick="addBay()">+ Добавить</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Кто принял машину</label>
+        <input type="text" id="fReceivedBy" required placeholder="напр. Ерлан">
+      </div>
+
+      <div class="field">
+        <label>Услуги</label>
+        <div class="services-list" id="servicesList"></div>
+        <div class="add-service-row">
+          <input type="text" id="newServiceName" placeholder="Название новой услуги">
+          <input type="number" id="newServicePrice" placeholder="Цена" min="0" style="max-width:90px;">
+          <button type="button" onclick="addService()">+ Добавить</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Роспись клиента</label>
+        <div class="sig-wrap">
+          <canvas id="sigPad"></canvas>
+          <button type="button" class="sig-clear" onclick="clearSignature()">Очистить</button>
+        </div>
+        <div class="sig-hint">Распишитесь пальцем или мышью в поле выше</div>
+      </div>
+      <button type="submit" class="save-btn"><span id="saveBtnLabel">Сохранить запись</span></button>
+    </form>
+  </div>
+</div>
+
+<!-- Модалка клиентов бонусной программы -->
+<div class="modal-overlay" id="clientsOverlay" onclick="closeClientsPanel()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Клиенты</div>
+      <button class="close-btn" onclick="closeClientsPanel()">✕</button>
+    </div>
+    <input type="text" id="clientsSearch" placeholder="Поиск по имени или телефону…" oninput="searchClientsDebounced()" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:14px;margin-bottom:12px;">
+    <div id="clientsList"></div>
+  </div>
+</div>
+
+<!-- Модалка настроек бонусной программы (только админ) -->
+<div class="modal-overlay" id="loyaltyOverlay" onclick="closeLoyaltySettings()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Настройки бонусной программы</div>
+      <button class="close-btn" onclick="closeLoyaltySettings()">✕</button>
+    </div>
+    <form id="loyaltyForm">
+      <div class="field">
+        <label>Баллов от суммы визита, %</label>
+        <input type="number" id="lsPointsPercent" min="0" max="100" step="0.5" required>
+      </div>
+      <button type="submit" class="save-btn">Сохранить настройки</button>
+    </form>
+  </div>
+</div>
+
+<!-- Модалка пользователей (только админ) -->
+<div class="modal-overlay" id="usersOverlay" onclick="closeUsers()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Пользователи</div>
+      <button class="close-btn" onclick="closeUsers()">✕</button>
+    </div>
+    <div id="usersList" style="margin-bottom:16px;"></div>
+    <form id="userForm">
+      <div class="field"><label>Имя</label><input type="text" id="uName" required placeholder="напр. Динара"></div>
+      <div class="field-row">
+        <div class="field"><label>Логин</label><input type="text" id="uUsername" required placeholder="напр. dinara"></div>
+        <div class="field"><label>Пароль</label><input type="text" id="uPassword" required placeholder="мин. 6 символов"></div>
+      </div>
+      <div class="field">
+        <label>Роль</label>
+        <select id="uRole" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:14px;">
+          <option value="user">Сотрудник</option>
+          <option value="admin">Администратор</option>
+        </select>
+      </div>
+      <button type="submit" class="save-btn">Добавить пользователя</button>
+    </form>
+  </div>
+</div>
+
+<!-- Модалка услуг -->
+<div class="modal-overlay" id="servicesOverlay" onclick="closeServicesPanel()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Услуги</div>
+      <button class="close-btn" onclick="closeServicesPanel()">✕</button>
+    </div>
+    <div id="servicesEditList" style="margin-bottom:16px;"></div>
+    <form id="newServiceForm">
+      <div class="field-row">
+        <div class="field" style="flex:2;"><label>Название</label><input type="text" id="svcNewName" required placeholder="напр. Дезинфекция салона"></div>
+        <div class="field"><label>Цена, ₸</label><input type="number" id="svcNewPrice" required min="0" placeholder="0"></div>
+      </div>
+      <button type="submit" class="save-btn">Добавить услугу</button>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
