@@ -10,6 +10,8 @@ const servicesRouter = require("./routes/services");
 const baysRouter = require("./routes/bays");
 const clientsRouter = require("./routes/clients");
 const loyaltyRouter = require("./routes/loyalty");
+const payrollRouter = require("./routes/payroll");
+const reportsRouter = require("./routes/reports");
 const errorHandler = require("./middleware/errorHandler");
 const { requireAuth } = require("./middleware/auth");
 
@@ -26,6 +28,8 @@ app.use("/api/services", requireAuth, servicesRouter);
 app.use("/api/bays", requireAuth, baysRouter);
 app.use("/api/clients", requireAuth, clientsRouter);
 app.use("/api/loyalty", requireAuth, loyaltyRouter);
+app.use("/api/payroll", requireAuth, payrollRouter);
+app.use("/api/reports", requireAuth, reportsRouter);
 
 app.use(errorHandler);
 

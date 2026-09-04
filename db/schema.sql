@@ -48,6 +48,14 @@ CREATE TABLE IF NOT EXISTS loyalty_settings (
 );
 INSERT INTO loyalty_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
+-- Настройки для отчёта смены/кассы — одна строка, редактируется администратором
+CREATE TABLE IF NOT EXISTS payroll_settings (
+    id              SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    admin_percent   NUMERIC(5, 2) NOT NULL DEFAULT 10,  -- % от общей кассы — доля администратора
+    washer_percent  NUMERIC(5, 2) NOT NULL DEFAULT 30   -- % от суммы каждой мойки — зарплата мойщика
+);
+INSERT INTO payroll_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS records (
     id                      BIGSERIAL PRIMARY KEY,
     service_date            DATE NOT NULL,
@@ -60,6 +68,8 @@ CREATE TABLE IF NOT EXISTS records (
     client_id                INTEGER REFERENCES clients(id),
     points_earned            NUMERIC(12, 2) NOT NULL DEFAULT 0,
     points_redeemed          NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    amount_cash              NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- сколько из price оплачено наличными
+    amount_qr                NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- сколько из price оплачено через QR
     signature                TEXT,                     -- подпись клиента, PNG в формате base64 data URL
     created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );

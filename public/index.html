@@ -10,6 +10,7 @@
 
 <!-- Экран входа -->
 <div class="login-screen" id="loginScreen">
+  <button type="button" class="theme-toggle-corner theme-toggle-btn" data-compact="true" onclick="toggleTheme()">🌙</button>
   <div class="login-box">
     <div class="brand" style="margin-bottom:20px;justify-content:center;">
       <div class="brand-icon">🚗</div>
@@ -36,12 +37,14 @@
       <div class="brand-icon">🚗</div>
       <div><div class="brand-title">Автомойка</div><div class="brand-sub">Журнал обслуживания</div></div>
     </div>
-    <div class="nav-item active">📋 Все записи</div>
-    <div class="nav-item" style="cursor:pointer;" onclick="openServicesPanel()">🧴 Услуги</div>
-    <div class="nav-item" style="cursor:pointer;" onclick="openClientsPanel()">👤 Клиенты</div>
-    <div class="nav-item" id="loyaltyNavItem" style="display:none;cursor:pointer;" onclick="openLoyaltySettings()">🎁 Бонусы</div>
-    <div class="nav-item" id="usersNavItem" style="display:none;cursor:pointer;" onclick="openUsers()">👥 Пользователи</div>
+    <div class="nav-item active"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Все записи</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openServicesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> Услуги</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openClientsPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg> Клиенты</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openReportPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Отчёт</div>
+    <div class="nav-item" id="loyaltyNavItem" style="display:none;cursor:pointer;" onclick="openLoyaltySettings()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg> Бонусы</div>
+    <div class="nav-item" id="usersNavItem" style="display:none;cursor:pointer;" onclick="openUsers()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Пользователи</div>
     <div class="sidebar-footer">
+      <button type="button" class="theme-toggle-full theme-toggle-btn" onclick="toggleTheme()">🌙 Тёмная тема</button>
       <div class="user-chip">
         <div>
           <div class="user-name" id="currentUserName">—</div>
@@ -59,6 +62,8 @@
         <div class="mobile-title">Автомойка</div>
       </div>
       <div class="mobile-bar-right">
+        <button class="logout-btn theme-toggle-btn" data-compact="true" onclick="toggleTheme()">🌙</button>
+        <button class="logout-btn" onclick="openReportPanel()">📊</button>
         <button class="logout-btn" onclick="openClientsPanel()">👤</button>
         <button class="logout-btn" onclick="openServicesPanel()">🧴</button>
         <button class="logout-btn" onclick="logout()">Выйти</button>
@@ -71,8 +76,9 @@
           <div class="main-title-h">Журнал обслуживания</div>
           <div class="main-title-sub" id="dateLabel">—</div>
         </div>
-        <button class="add-btn" onclick="openForm()">+ Новая запись</button>
       </div>
+
+      <button class="fab-add-btn" onclick="openForm()">+ <span>Новая запись</span></button>
 
       <div class="filter-bar">
         <div class="filter-field">
@@ -115,7 +121,7 @@
         <table>
           <thead>
             <tr>
-              <th>Дата</th><th>Марка авто</th><th>Номер авто</th><th>Бокс</th><th>Услуги</th><th>Цена</th><th>Кто принял</th><th>Подпись</th><th></th>
+              <th>Дата</th><th>Марка авто</th><th>Номер авто</th><th>Бокс</th><th>Услуги</th><th>Цена</th><th>Оплата</th><th>Кто принял</th><th>Подпись</th><th></th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -142,6 +148,19 @@
       <div class="field-row">
         <div class="field"><label>Марка авто</label><input type="text" id="fBrand" required placeholder="напр. Toyota Camry"></div>
         <div class="field"><label>Номер авто</label><input type="text" id="fNumber" required placeholder="напр. 123 ABC 02"></div>
+      </div>
+
+      <div class="field">
+        <label>Способ оплаты</label>
+        <div class="payment-method-row">
+          <label><input type="radio" name="paymentMethod" value="cash" checked onchange="onPaymentMethodChange()"> Наличные</label>
+          <label><input type="radio" name="paymentMethod" value="qr" onchange="onPaymentMethodChange()"> QR</label>
+          <label><input type="radio" name="paymentMethod" value="mixed" onchange="onPaymentMethodChange()"> Смешанно</label>
+        </div>
+        <div class="field-row" id="mixedPaymentRow" style="display:none;margin-top:8px;">
+          <div class="field"><label>Наличными, ₸</label><input type="number" id="fAmountCash" min="0"></div>
+          <div class="field"><label>Через QR, ₸</label><input type="number" id="fAmountQr" min="0"></div>
+        </div>
       </div>
 
       <div class="field" id="loyaltySection">
@@ -184,6 +203,33 @@
       </div>
       <button type="submit" class="save-btn"><span id="saveBtnLabel">Сохранить запись</span></button>
     </form>
+  </div>
+</div>
+
+<!-- Модалка отчёта по кассе/смене -->
+<div class="modal-overlay" id="reportOverlay" onclick="closeReportPanel()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Отчёт по кассе</div>
+      <button class="close-btn" onclick="closeReportPanel()">✕</button>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Дата от</label><input type="date" id="repFrom" onchange="loadReport()"></div>
+      <div class="field"><label>Дата до</label><input type="date" id="repTo" onchange="loadReport()"></div>
+    </div>
+    <div id="reportBody"></div>
+    <button type="button" class="save-btn" style="margin-top:12px;" onclick="downloadReportPdf()">📄 Скачать PDF</button>
+
+    <div id="payrollSettingsBlock" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+      <div class="modal-title" style="font-size:14px;margin-bottom:10px;">Настройки процентов</div>
+      <form id="payrollForm">
+        <div class="field-row">
+          <div class="field"><label>Процент админа, %</label><input type="number" id="ppAdminPercent" min="0" max="100" step="0.5" required></div>
+          <div class="field"><label>Процент мойщика, %</label><input type="number" id="ppWasherPercent" min="0" max="100" step="0.5" required></div>
+        </div>
+        <button type="submit" class="save-btn">Сохранить настройки</button>
+      </form>
+    </div>
   </div>
 </div>
 

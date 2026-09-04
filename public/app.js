@@ -1,5 +1,23 @@
 // Автомойка — фронтенд: вход по логину/паролю (JWT), журнал записей, каталог услуг
 
+// --- Светлая/тёмная тема — применяется сразу, до входа, чтобы не было "мигания" ---
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("theme", theme);
+  const isDark = theme === "dark";
+  document.querySelectorAll(".theme-toggle-full").forEach(el => {
+    el.textContent = isDark ? "☀️ Светлая тема" : "🌙 Тёмная тема";
+  });
+  document.querySelectorAll('.theme-toggle-btn[data-compact="true"]').forEach(el => {
+    el.textContent = isDark ? "☀️" : "🌙";
+  });
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "light";
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+applyTheme(localStorage.getItem("theme") || "light");
+
 let token = localStorage.getItem("token") || null;
 let currentUser = null;
 let records = [];
@@ -31,6 +49,8 @@ const apiServices = (path, opts) => api(path, "/api/services", opts);
 const apiBays = (path, opts) => api(path, "/api/bays", opts);
 const apiClients = (path, opts) => api(path, "/api/clients", opts);
 const apiLoyalty = (path, opts) => api(path, "/api/loyalty", opts);
+const apiPayroll = (path, opts) => api(path, "/api/payroll", opts);
+const apiReports = (path, opts) => api(path, "/api/reports", opts);
 const apiAuth = (path, opts) => api(path, "/api/auth", opts);
 
 async function boot() {
@@ -97,6 +117,7 @@ async function showApp() {
   document.getElementById("userForm").addEventListener("submit", submitUser);
   document.getElementById("newServiceForm").addEventListener("submit", submitNewService);
   document.getElementById("loyaltyForm").addEventListener("submit", submitLoyaltySettings);
+  document.getElementById("payrollForm").addEventListener("submit", submitPayrollSettings);
 
   await loadServices();
   await loadBays();
@@ -281,6 +302,15 @@ function connectWebSocket() {
   } catch (err) { /* без realtime — не критично */ }
 }
 
+function paymentIcon(r) {
+  const cash = Number(r.amount_cash) || 0;
+  const qr = Number(r.amount_qr) || 0;
+  if (cash > 0 && qr > 0) return "💵📱";
+  if (qr > 0) return "📱";
+  if (cash > 0) return "💵";
+  return "—";
+}
+
 function render() {
   const tableWrap = document.getElementById("tableWrap");
   const cardList = document.getElementById("cardList");
@@ -306,6 +336,7 @@ function render() {
       <td>${escapeHtml(r.bay_name || "—")}</td>
       <td>${escapeHtml(svcText)}</td>
       <td class="price-cell">${fmt(r.price)}</td>
+      <td>${paymentIcon(r)}</td>
       <td style="color:var(--muted)">${escapeHtml(r.received_by || r.staff_name || "—")}</td>
       <td>${sigCell}</td>
       <td>
@@ -326,6 +357,7 @@ function render() {
           <span>${dateFmt}</span>
           <span>· ${escapeHtml(r.bay_name || "—")}</span>
           <span>· ${escapeHtml(svcText)}</span>
+          <span>· ${paymentIcon(r)}</span>
           <span>· ${escapeHtml(r.received_by || r.staff_name || "—")}</span>
         </div>
       </div>
@@ -376,6 +408,21 @@ function openForm(recordId) {
   document.getElementById("clientCard").style.display = "none";
   loyaltyLookup = null;
   document.getElementById("loyaltySection").style.display = record ? "none" : "block";
+
+  if (record) {
+    const method = Number(record.amount_qr) > 0 && Number(record.amount_cash) > 0
+      ? "mixed"
+      : Number(record.amount_qr) > 0 ? "qr" : "cash";
+    document.querySelector(`input[name="paymentMethod"][value="${method}"]`).checked = true;
+    document.getElementById("fAmountCash").value = record.amount_cash || "";
+    document.getElementById("fAmountQr").value = record.amount_qr || "";
+  } else {
+    document.querySelector('input[name="paymentMethod"][value="cash"]').checked = true;
+    document.getElementById("fAmountCash").value = "";
+    document.getElementById("fAmountQr").value = "";
+  }
+  onPaymentMethodChange();
+
   clearSignature();
   if (record && record.signature) {
     hasSignature = true;
@@ -573,6 +620,167 @@ async function requestRedeemCode() {
   }
 }
 
+// --- Способ оплаты в форме записи ---
+function onPaymentMethodChange() {
+  const method = document.querySelector('input[name="paymentMethod"]:checked').value;
+  document.getElementById("mixedPaymentRow").style.display = method === "mixed" ? "flex" : "none";
+}
+
+function computePaymentAmounts(finalAmount) {
+  const method = document.querySelector('input[name="paymentMethod"]:checked').value;
+  if (method === "cash") return { amount_cash: finalAmount, amount_qr: 0 };
+  if (method === "qr") return { amount_cash: 0, amount_qr: finalAmount };
+  return {
+    amount_cash: Number(document.getElementById("fAmountCash").value) || 0,
+    amount_qr: Number(document.getElementById("fAmountQr").value) || 0,
+  };
+}
+
+// --- Отчёт по кассе (смена/период) ---
+let lastReportData = null;
+let lastReportPeriod = "";
+
+async function openReportPanel() {
+  document.getElementById("reportOverlay").style.display = "flex";
+  document.getElementById("repFrom").value = todayStr();
+  document.getElementById("repTo").value = todayStr();
+
+  const isAdmin = currentUser.role === "admin";
+  document.getElementById("payrollSettingsBlock").style.display = isAdmin ? "block" : "none";
+  if (isAdmin) {
+    try {
+      const s = await apiPayroll("/settings");
+      document.getElementById("ppAdminPercent").value = s.admin_percent;
+      document.getElementById("ppWasherPercent").value = s.washer_percent;
+    } catch (err) { /* тихо игнорируем */ }
+  }
+
+  await loadReport();
+}
+function closeReportPanel() { document.getElementById("reportOverlay").style.display = "none"; }
+
+async function loadReport() {
+  const bodyEl = document.getElementById("reportBody");
+  bodyEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">Загрузка…</div>`;
+  try {
+    const from = document.getElementById("repFrom").value;
+    const to = document.getElementById("repTo").value;
+    const params = new URLSearchParams();
+    if (from) params.set("date_from", from);
+    if (to) params.set("date_to", to);
+    const r = await apiReports(`/shift?${params.toString()}`);
+    lastReportData = r;
+    lastReportPeriod = from === to ? from : `${from} — ${to}`;
+
+    const washerRows = r.washer_breakdown.map(w => `
+      <tr>
+        <td>${escapeHtml(w.name)}</td>
+        <td>${w.cars_count}</td>
+        <td>${fmt(w.revenue)}</td>
+        <td>${fmt(w.salary)}</td>
+      </tr>
+    `).join("");
+
+    bodyEl.innerHTML = `
+      <div class="report-kpi-grid">
+        <div class="report-kpi"><div class="rk-label">Машин</div><div class="rk-value">${r.cars_count}</div></div>
+        <div class="report-kpi"><div class="rk-label">Общая касса</div><div class="rk-value">${fmt(r.total_revenue)}</div></div>
+        <div class="report-kpi"><div class="rk-label">Наличными</div><div class="rk-value">${fmt(r.total_cash)}</div></div>
+        <div class="report-kpi"><div class="rk-label">QR</div><div class="rk-value">${fmt(r.total_qr)}</div></div>
+        <div class="report-kpi"><div class="rk-label">Бонусами оплачено</div><div class="rk-value">${fmt(r.total_bonus_redeemed)}</div></div>
+        <div class="report-kpi"><div class="rk-label">Процент админа (${r.admin_percent}%)</div><div class="rk-value">${fmt(r.admin_cut)}</div></div>
+      </div>
+
+      <table class="washer-table">
+        <thead><tr><th>Мойщик</th><th>Машин</th><th>Выручка</th><th>ЗП (${r.washer_percent}%)</th></tr></thead>
+        <tbody>${washerRows || `<tr><td colspan="4" style="color:var(--muted);">Записей нет</td></tr>`}</tbody>
+        <tfoot><tr><td colspan="3">Итого зарплата мойщикам</td><td>${fmt(r.washer_total)}</td></tr></tfoot>
+      </table>
+
+      <div class="report-highlight">
+        <div class="rk-label">Наличными сдать (наличные − ЗП мойщиков − процент админа)</div>
+        <div class="rk-value">${fmt(r.cash_to_handover)}</div>
+      </div>
+    `;
+  } catch (err) {
+    bodyEl.innerHTML = `<div style="color:var(--danger);font-size:13px;">${err.message}</div>`;
+  }
+}
+
+// Печатает отчёт в новой вкладке — пользователь сохраняет как PDF через системный
+// диалог печати браузера (Ctrl+P → «Сохранить как PDF»). Это не требует ни
+// серверных PDF-библиотек, ни отдельных шрифтов для кириллицы — просто HTML,
+// который браузер сам умеет превращать в PDF.
+function downloadReportPdf() {
+  if (!lastReportData) return alert("Сначала дождитесь загрузки отчёта");
+  const r = lastReportData;
+
+  const washerRows = r.washer_breakdown.map(w => `
+    <tr><td>${escapeHtml(w.name)}</td><td>${w.cars_count}</td><td>${fmt(w.revenue)}</td><td>${fmt(w.salary)}</td></tr>
+  `).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><title>Отчёт по кассе — ${escapeHtml(lastReportPeriod)}</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;color:#122642;padding:28px;}
+  h1{font-size:20px;margin:0 0 2px;}
+  .sub{color:#6C86A6;font-size:13px;margin-bottom:20px;}
+  .kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;}
+  .kpi{border:1px solid #D9E7F6;border-radius:8px;padding:10px 14px;min-width:150px;}
+  .kpi-label{color:#6C86A6;font-size:11px;}
+  .kpi-value{font-weight:700;font-size:16px;color:#1657A6;}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #D9E7F6;}
+  tfoot td{font-weight:700;border-top:2px solid #D9E7F6;border-bottom:none;}
+  .final{margin-top:22px;padding:16px;background:#1657A6;color:#fff;border-radius:8px;}
+  .final .kpi-label{color:rgba(255,255,255,.8);}
+  .final .kpi-value{color:#fff;font-size:20px;}
+  @media print{ @page{ margin:16mm; } }
+</style></head>
+<body>
+  <h1>Автомойка — отчёт по кассе</h1>
+  <div class="sub">Период: ${escapeHtml(lastReportPeriod)}</div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Машин</div><div class="kpi-value">${r.cars_count}</div></div>
+    <div class="kpi"><div class="kpi-label">Общая касса</div><div class="kpi-value">${fmt(r.total_revenue)}</div></div>
+    <div class="kpi"><div class="kpi-label">Наличными</div><div class="kpi-value">${fmt(r.total_cash)}</div></div>
+    <div class="kpi"><div class="kpi-label">QR</div><div class="kpi-value">${fmt(r.total_qr)}</div></div>
+    <div class="kpi"><div class="kpi-label">Бонусами оплачено</div><div class="kpi-value">${fmt(r.total_bonus_redeemed)}</div></div>
+    <div class="kpi"><div class="kpi-label">Процент админа (${r.admin_percent}%)</div><div class="kpi-value">${fmt(r.admin_cut)}</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Мойщик</th><th>Машин</th><th>Выручка</th><th>ЗП (${r.washer_percent}%)</th></tr></thead>
+    <tbody>${washerRows || `<tr><td colspan="4">Записей нет</td></tr>`}</tbody>
+    <tfoot><tr><td colspan="3">Итого зарплата мойщикам</td><td>${fmt(r.washer_total)}</td></tr></tfoot>
+  </table>
+  <div class="final">
+    <div class="kpi-label">Наличными сдать (наличные − ЗП мойщиков − процент админа)</div>
+    <div class="kpi-value">${fmt(r.cash_to_handover)}</div>
+  </div>
+</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) return alert("Браузер заблокировал открытие окна — разрешите всплывающие окна для этого сайта");
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
+
+async function submitPayrollSettings(e) {
+  e.preventDefault();
+  const payload = {
+    admin_percent: Number(document.getElementById("ppAdminPercent").value),
+    washer_percent: Number(document.getElementById("ppWasherPercent").value),
+  };
+  try {
+    await apiPayroll("/settings", { method: "PUT", body: JSON.stringify(payload) });
+    await loadReport();
+  } catch (err) {
+    alert("Не удалось сохранить настройки: " + err.message);
+  }
+}
+
 // --- Настройки бонусной программы (только админ) ---
 async function openLoyaltySettings() {
   document.getElementById("loyaltyOverlay").style.display = "flex";
@@ -693,6 +901,11 @@ async function submitForm(e) {
       }
     }
   }
+
+  // Наличные/QR считаются от суммы, которая реально перейдёт из рук в руки —
+  // то есть цена минус баллы, которые клиент, возможно, списывает.
+  const estimatedFinal = Math.max(0, price - (payload.redeem_points || 0));
+  Object.assign(payload, computePaymentAmounts(estimatedFinal));
 
   try {
     if (editingRecordId) {

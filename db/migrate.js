@@ -22,7 +22,7 @@ async function run() {
   if (process.argv.includes("--reset")) {
     console.log("Удаляю старые таблицы (--reset)...");
     await pool.query(
-      "DROP TABLE IF EXISTS record_services, records, services, bays, clients, loyalty_settings, users CASCADE;" +
+      "DROP TABLE IF EXISTS record_services, records, services, bays, clients, loyalty_settings, payroll_settings, users CASCADE;" +
       "DROP VIEW IF EXISTS daily_totals;"
     );
     console.log("Старые таблицы удалены.");

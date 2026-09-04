@@ -29,13 +29,13 @@ WITH erlan AS (SELECT id FROM users WHERE username = 'erlan'),
      bay2 AS (SELECT id FROM bays WHERE name = 'Бокс 2'),
      aigul AS (SELECT id FROM clients WHERE phone = '77071234567'),
      r1 AS (
-       INSERT INTO records (service_date, car_brand, car_number, price, staff_id, received_by, bay_id, client_id, points_earned)
-       SELECT CURRENT_DATE, 'Toyota Camry', '123 ABC 02', 5500, erlan.id, 'Ерлан', bay1.id, aigul.id, 275 FROM erlan, bay1, aigul
+       INSERT INTO records (service_date, car_brand, car_number, price, staff_id, received_by, bay_id, client_id, points_earned, amount_cash, amount_qr)
+       SELECT CURRENT_DATE, 'Toyota Camry', '123 ABC 02', 5500, erlan.id, 'Ерлан', bay1.id, aigul.id, 275, 0, 5500 FROM erlan, bay1, aigul
        RETURNING id
      ),
      r2 AS (
-       INSERT INTO records (service_date, car_brand, car_number, price, staff_id, received_by, bay_id)
-       SELECT CURRENT_DATE, 'Hyundai Tucson', '456 KZE 05', 2000, erlan.id, 'Динара', bay2.id FROM erlan, bay2
+       INSERT INTO records (service_date, car_brand, car_number, price, staff_id, received_by, bay_id, amount_cash, amount_qr)
+       SELECT CURRENT_DATE, 'Hyundai Tucson', '456 KZE 05', 2000, erlan.id, 'Динара', bay2.id, 2000, 0 FROM erlan, bay2
        RETURNING id
      )
 INSERT INTO record_services (record_id, service_id, service_name, service_price)

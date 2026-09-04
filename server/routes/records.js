@@ -82,7 +82,7 @@ router.post("/", async (req, res, next) => {
   try {
     const {
       service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by,
-      client_phone, client_name, redeem_points, otp_code,
+      client_phone, client_name, redeem_points, otp_code, amount_cash, amount_qr,
     } = req.body;
 
     if (!service_date || !car_brand || !car_number || price == null || !bay_id || !Array.isArray(service_ids) || service_ids.length === 0) {
@@ -154,11 +154,22 @@ router.post("/", async (req, res, next) => {
       );
     }
 
+    // Наличные + QR должны в сумме сходиться с итоговой суммой к оплате (после
+    // возможного списания баллов) — сервер это проверяет, а не полагается на фронтенд.
+    const cash = Math.max(0, Number(amount_cash) || 0);
+    const qr = Math.max(0, Number(amount_qr) || 0);
+    if (Math.abs(cash + qr - finalPrice) > 1) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: `Сумма наличных и QR (${cash + qr}) не совпадает с итоговой суммой к оплате (${finalPrice})`,
+      });
+    }
+
     const { rows: recRows } = await client.query(
       `INSERT INTO records
          (service_date, car_brand, car_number, price, staff_id, received_by, bay_id, signature,
-          client_id, points_earned, points_redeemed)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+          client_id, points_earned, points_redeemed, amount_cash, amount_qr)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING *`,
       [
         service_date,
@@ -172,6 +183,8 @@ router.post("/", async (req, res, next) => {
         loyaltyClient ? loyaltyClient.id : null,
         pointsEarned,
         actualRedeemed,
+        cash,
+        qr,
       ]
     );
     const record = recRows[0];
@@ -203,12 +216,20 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", requireAdmin, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by } = req.body;
+    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by, amount_cash, amount_qr } = req.body;
 
     if (!service_date || !car_brand || !car_number || price == null || !bay_id || !received_by ||
         !Array.isArray(service_ids) || service_ids.length === 0) {
       return res.status(400).json({
         error: "Обязательны: service_date, car_brand, car_number, price, bay_id, received_by, хотя бы одна услуга",
+      });
+    }
+
+    const cash = Math.max(0, Number(amount_cash) || 0);
+    const qr = Math.max(0, Number(amount_qr) || 0);
+    if (Math.abs(cash + qr - Number(price)) > 1) {
+      return res.status(400).json({
+        error: `Сумма наличных и QR (${cash + qr}) не совпадает с ценой (${price})`,
       });
     }
 
@@ -218,14 +239,14 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
     const { rows: recRows } = await client.query(
       hasSignature
         ? `UPDATE records
-             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, signature=$7
-           WHERE id=$8 RETURNING *`
+             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, signature=$7, amount_cash=$8, amount_qr=$9
+           WHERE id=$10 RETURNING *`
         : `UPDATE records
-             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6
-           WHERE id=$7 RETURNING *`,
+             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, amount_cash=$7, amount_qr=$8
+           WHERE id=$9 RETURNING *`,
       hasSignature
-        ? [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), signature || null, req.params.id]
-        : [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), req.params.id]
+        ? [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), signature || null, cash, qr, req.params.id]
+        : [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), cash, qr, req.params.id]
     );
     if (recRows.length === 0) {
       await client.query("ROLLBACK");
