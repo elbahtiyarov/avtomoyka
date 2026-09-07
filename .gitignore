@@ -3,3 +3,5 @@ node_modules/
 npm-debug.log*
 .DS_Store
 *.log
+*.sql.bak
+*_backup.sql
