@@ -47,9 +47,10 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 
 async function api(path, base, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  const hadToken = !!token;
   if (token) headers["Authorization"] = "Bearer " + token;
   const res = await fetch(base + path, { ...options, headers });
-  if (res.status === 401) {
+  if (res.status === 401 && hadToken) {
     logout();
     throw new Error("Сессия истекла, войдите заново");
   }
