@@ -8,6 +8,7 @@ const authRouter = require("./routes/auth");
 const recordsRouter = require("./routes/records");
 const servicesRouter = require("./routes/services");
 const baysRouter = require("./routes/bays");
+const washersRouter = require("./routes/washers");
 const clientsRouter = require("./routes/clients");
 const loyaltyRouter = require("./routes/loyalty");
 const payrollRouter = require("./routes/payroll");
@@ -26,6 +27,7 @@ app.use("/api/auth", authRouter);              // логин — без авто
 app.use("/api/records", requireAuth, recordsRouter);
 app.use("/api/services", requireAuth, servicesRouter);
 app.use("/api/bays", requireAuth, baysRouter);
+app.use("/api/washers", requireAuth, washersRouter);
 app.use("/api/clients", requireAuth, clientsRouter);
 app.use("/api/loyalty", requireAuth, loyaltyRouter);
 app.use("/api/payroll", requireAuth, payrollRouter);

@@ -18,11 +18,27 @@ function toggleTheme() {
 }
 applyTheme(localStorage.getItem("theme") || "light");
 
+// --- Мобильное меню (гамбургер) — сайдбар выезжает поверх контента ---
+function toggleMobileMenu() {
+  document.getElementById("sidebar").classList.toggle("mobile-open");
+  document.getElementById("sidebarBackdrop").classList.toggle("open");
+}
+function closeMobileMenu() {
+  document.getElementById("sidebar").classList.remove("mobile-open");
+  document.getElementById("sidebarBackdrop").classList.remove("open");
+}
+// Любой пункт меню, кроме переключателя темы, закрывает выезжающее меню после нажатия —
+// как в мобильных приложениях (тема — исключение, чтобы можно было сразу посмотреть результат)
+document.querySelectorAll(".sidebar .nav-item, .sidebar .logout-btn").forEach(el => {
+  el.addEventListener("click", closeMobileMenu);
+});
+
 let token = localStorage.getItem("token") || null;
 let currentUser = null;
 let records = [];
 let services = [];
 let bays = [];
+let washers = [];
 let ws = null;
 let hasSignature = false;
 
@@ -47,6 +63,7 @@ async function api(path, base, options = {}) {
 const apiRecords = (path, opts) => api(path, "/api/records", opts);
 const apiServices = (path, opts) => api(path, "/api/services", opts);
 const apiBays = (path, opts) => api(path, "/api/bays", opts);
+const apiWashers = (path, opts) => api(path, "/api/washers", opts);
 const apiClients = (path, opts) => api(path, "/api/clients", opts);
 const apiLoyalty = (path, opts) => api(path, "/api/loyalty", opts);
 const apiPayroll = (path, opts) => api(path, "/api/payroll", opts);
@@ -118,9 +135,11 @@ async function showApp() {
   document.getElementById("newServiceForm").addEventListener("submit", submitNewService);
   document.getElementById("loyaltyForm").addEventListener("submit", submitLoyaltySettings);
   document.getElementById("payrollForm").addEventListener("submit", submitPayrollSettings);
+  document.getElementById("newWasherForm").addEventListener("submit", submitNewWasher);
 
   await loadServices();
   await loadBays();
+  await loadWashers();
   await loadRecords();
   await loadSummary();
   connectWebSocket();
@@ -242,6 +261,106 @@ async function addBay() {
     document.getElementById("newBayName").value = "";
   } catch (err) {
     alert("Не удалось добавить бокс: " + err.message);
+  }
+}
+
+// --- Мойщики (кто принял машину) — выпадающий список в форме + отдельная панель управления ---
+async function loadWashers() {
+  try {
+    washers = await apiWashers("");
+    renderWasherOptions();
+  } catch (err) {
+    washers = [];
+  }
+}
+
+function renderWasherOptions() {
+  const el = document.getElementById("fReceivedBy");
+  if (!el) return;
+  const current = el.value;
+  el.innerHTML = washers.length === 0
+    ? `<option value="">Нет мойщиков — добавьте ниже</option>`
+    : washers.map(w => `<option value="${escapeHtml(w.name)}">${escapeHtml(w.name)}</option>`).join("");
+  if (current && washers.some(w => w.name === current)) el.value = current;
+}
+
+async function addWasherInline() {
+  const name = document.getElementById("newWasherName").value.trim();
+  if (!name) return alert("Укажите имя мойщика");
+  try {
+    const w = await apiWashers("", { method: "POST", body: JSON.stringify({ name }) });
+    washers = washers.filter(x => x.id !== w.id);
+    washers.push(w);
+    washers.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    renderWasherOptions();
+    document.getElementById("fReceivedBy").value = w.name;
+    document.getElementById("newWasherName").value = "";
+  } catch (err) {
+    alert("Не удалось добавить мойщика: " + err.message);
+  }
+}
+
+async function openWashersPanel() {
+  document.getElementById("washersOverlay").style.display = "flex";
+  await loadWashers();
+  renderWashersPanel();
+}
+function closeWashersPanel() { document.getElementById("washersOverlay").style.display = "none"; }
+
+function renderWashersPanel() {
+  const el = document.getElementById("washersEditList");
+  if (washers.length === 0) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Пока нет мойщиков</div>`;
+    return;
+  }
+  el.innerHTML = washers.map(w => `
+    <div class="svc-edit-row">
+      <input type="text" id="wshName-${w.id}" value="${escapeHtml(w.name)}">
+      <button type="button" class="svc-save" onclick="saveWasher(${w.id})">Сохранить</button>
+      <button type="button" class="svc-hide" onclick="hideWasher(${w.id})">Скрыть</button>
+    </div>
+  `).join("");
+}
+
+async function saveWasher(id) {
+  const name = document.getElementById(`wshName-${id}`).value.trim();
+  if (!name) return alert("Укажите имя");
+  try {
+    const updated = await apiWashers(`/${id}`, { method: "PUT", body: JSON.stringify({ name }) });
+    washers = washers.map(w => w.id === id ? updated : w);
+    renderWashersPanel();
+    renderWasherOptions();
+  } catch (err) {
+    alert("Не удалось сохранить: " + err.message);
+  }
+}
+
+async function hideWasher(id) {
+  if (!confirm("Скрыть этого мойщика из списка? Старые записи он не затронет.")) return;
+  try {
+    await apiWashers(`/${id}`, { method: "DELETE" });
+    washers = washers.filter(w => w.id !== id);
+    renderWashersPanel();
+    renderWasherOptions();
+  } catch (err) {
+    alert("Не удалось скрыть: " + err.message);
+  }
+}
+
+async function submitNewWasher(e) {
+  e.preventDefault();
+  const name = document.getElementById("wshNewName").value.trim();
+  if (!name) return alert("Укажите имя");
+  try {
+    const w = await apiWashers("", { method: "POST", body: JSON.stringify({ name }) });
+    washers = washers.filter(x => x.id !== w.id);
+    washers.push(w);
+    washers.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    renderWashersPanel();
+    renderWasherOptions();
+    document.getElementById("newWasherForm").reset();
+  } catch (err) {
+    alert("Не удалось добавить: " + err.message);
   }
 }
 
@@ -400,10 +519,10 @@ function openForm(recordId) {
   document.getElementById("fPrice").value = record ? record.price : "";
   document.getElementById("fBrand").value = record ? record.car_brand : "";
   document.getElementById("fNumber").value = record ? record.car_number : "";
-  document.getElementById("fReceivedBy").value = record ? record.received_by : currentUser.name;
   document.getElementById("newServiceName").value = "";
   document.getElementById("newServicePrice").value = "";
   document.getElementById("newBayName").value = "";
+  document.getElementById("newWasherName").value = "";
   document.getElementById("fClientPhone").value = "";
   document.getElementById("clientCard").style.display = "none";
   loyaltyLookup = null;
@@ -432,6 +551,8 @@ function openForm(recordId) {
   }
   renderServiceCheckboxes();
   renderBayOptions();
+  renderWasherOptions();
+  document.getElementById("fReceivedBy").value = record ? record.received_by : currentUser.name;
   if (record) {
     document.getElementById("fBay").value = String(record.bay_id || "");
     const selectedIds = new Set((record.services || []).map(s => String(s.id)));

@@ -14,6 +14,10 @@ INSERT INTO services (name, price) VALUES
     ('Чистка двигателя',  2500)
 ON CONFLICT (name) DO NOTHING;
 
+INSERT INTO washers (name) VALUES
+    ('Ерлан'), ('Динара')
+ON CONFLICT (name) DO NOTHING;
+
 INSERT INTO bays (name) VALUES
     ('Бокс 1'), ('Бокс 2'), ('Бокс 3'), ('Бокс 4')
 ON CONFLICT (name) DO NOTHING;

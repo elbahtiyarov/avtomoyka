@@ -18,6 +18,14 @@ CREATE TABLE IF NOT EXISTS services (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Мойщики (кто принял машину) — настраиваемый список, можно добавлять новых прямо из формы
+CREATE TABLE IF NOT EXISTS washers (
+    id          SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    active      BOOLEAN NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Боксы (посты мойки) — настраиваемый список, можно добавлять новые прямо из формы
 CREATE TABLE IF NOT EXISTS bays (
     id          SERIAL PRIMARY KEY,

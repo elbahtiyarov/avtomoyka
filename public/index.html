@@ -32,13 +32,15 @@
 </div>
 
 <div class="layout" id="appLayout" style="display:none;">
-  <div class="sidebar">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileMenu()"></div>
+  <div class="sidebar" id="sidebar">
     <div class="brand">
       <div class="brand-icon">🚗</div>
       <div><div class="brand-title">Автомойка</div><div class="brand-sub">Журнал обслуживания</div></div>
     </div>
-    <div class="nav-item active"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Все записи</div>
+    <div class="nav-item active" style="cursor:pointer;" onclick="closeMobileMenu()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Все записи</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openServicesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> Услуги</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openWashersPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg> Мойщики</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openClientsPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg> Клиенты</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openReportPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Отчёт</div>
     <div class="nav-item" id="loyaltyNavItem" style="display:none;cursor:pointer;" onclick="openLoyaltySettings()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg> Бонусы</div>
@@ -57,16 +59,10 @@
 
   <div class="main">
     <div class="mobile-bar">
+      <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Меню">☰</button>
       <div class="mobile-bar-left">
         <div class="mobile-bar-icon">🚗</div>
         <div class="mobile-title">Автомойка</div>
-      </div>
-      <div class="mobile-bar-right">
-        <button class="logout-btn theme-toggle-btn" data-compact="true" onclick="toggleTheme()">🌙</button>
-        <button class="logout-btn" onclick="openReportPanel()">📊</button>
-        <button class="logout-btn" onclick="openClientsPanel()">👤</button>
-        <button class="logout-btn" onclick="openServicesPanel()">🧴</button>
-        <button class="logout-btn" onclick="logout()">Выйти</button>
       </div>
     </div>
 
@@ -179,8 +175,12 @@
       </div>
 
       <div class="field">
-        <label>Кто принял машину</label>
-        <input type="text" id="fReceivedBy" required placeholder="напр. Ерлан">
+        <label>Кто принял машину (мойщик)</label>
+        <select id="fReceivedBy" required></select>
+        <div class="add-service-row" style="margin-top:6px;">
+          <input type="text" id="newWasherName" placeholder="Новый мойщик, напр. Ерлан">
+          <button type="button" onclick="addWasherInline()">+ Добавить</button>
+        </div>
       </div>
 
       <div class="field">
@@ -302,6 +302,24 @@
         <div class="field"><label>Цена, ₸</label><input type="number" id="svcNewPrice" required min="0" placeholder="0"></div>
       </div>
       <button type="submit" class="save-btn">Добавить услугу</button>
+    </form>
+  </div>
+</div>
+
+<!-- Модалка мойщиков -->
+<div class="modal-overlay" id="washersOverlay" onclick="closeWashersPanel()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Мойщики</div>
+      <button class="close-btn" onclick="closeWashersPanel()">✕</button>
+    </div>
+    <div id="washersEditList" style="margin-bottom:16px;"></div>
+    <form id="newWasherForm">
+      <div class="field">
+        <label>Имя</label>
+        <input type="text" id="wshNewName" required placeholder="напр. Асхат">
+      </div>
+      <button type="submit" class="save-btn">Добавить мойщика</button>
     </form>
   </div>
 </div>
