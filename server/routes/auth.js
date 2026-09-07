@@ -21,6 +21,9 @@ router.post("/login", async (req, res, next) => {
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ error: "Неверный логин или пароль" });
     }
+    if (!user.active) {
+      return res.status(401).json({ error: "Учётная запись отключена" });
+    }
 
     const payload = { id: user.id, name: user.name, username: user.username, role: user.role };
     const token = jwt.sign(payload, SECRET, { expiresIn: "30d" });
@@ -39,7 +42,7 @@ router.get("/me", requireAuth, (req, res) => {
 router.get("/users", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, name, username, role, created_at FROM users ORDER BY name"
+      "SELECT id, name, username, role, created_at FROM users WHERE active = true ORDER BY name"
     );
     res.json(rows);
   } catch (err) {
@@ -58,25 +61,27 @@ router.post("/users", requireAuth, requireAdmin, async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO users (name, username, password_hash, role)
        VALUES ($1,$2,$3,$4)
+       ON CONFLICT (username) DO UPDATE
+         SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash,
+             role = EXCLUDED.role, active = true
        RETURNING id, name, username, role, created_at`,
       [name.trim(), username.trim().toLowerCase(), hash, role === "admin" ? "admin" : "user"]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    if (err.code === "23505") {
-      return res.status(409).json({ error: "Такой логин уже занят" });
-    }
     next(err);
   }
 });
 
-// Удаление пользователя (только админ, нельзя удалить самого себя)
+// Скрыть пользователя — не удаляем насовсем (только админ, нельзя скрыть самого себя).
+// Если удалить по-настоящему, Postgres не даст: на пользователя ссылаются его старые
+// записи в журнале (records.staff_id), и удаление сломало бы историю операций.
 router.delete("/users/:id", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     if (Number(req.params.id) === req.user.id) {
-      return res.status(400).json({ error: "Нельзя удалить свою же учётную запись" });
+      return res.status(400).json({ error: "Нельзя скрыть свою же учётную запись" });
     }
-    await pool.query("DELETE FROM users WHERE id = $1", [req.params.id]);
+    await pool.query("UPDATE users SET active = false WHERE id = $1", [req.params.id]);
     res.status(204).send();
   } catch (err) {
     next(err);

@@ -1058,7 +1058,7 @@ async function loadUsers() {
           <div>${escapeHtml(u.name)} <span style="color:var(--muted);">(${escapeHtml(u.username)})</span></div>
           <div class="u-role">${u.role === "admin" ? "Администратор" : "Сотрудник"}</div>
         </div>
-        ${u.id === currentUser.id ? "" : `<button class="u-del" onclick="deleteUser(${u.id})">Удалить</button>`}
+        ${u.id === currentUser.id ? "" : `<button class="u-del" onclick="hideUser(${u.id})">Скрыть</button>`}
       </div>
     `).join("") || `<div style="color:var(--muted);font-size:13px;">Пока никого нет</div>`;
   } catch (err) {
@@ -1083,13 +1083,13 @@ async function submitUser(e) {
   }
 }
 
-async function deleteUser(id) {
-  if (!confirm("Удалить этого пользователя?")) return;
+async function hideUser(id) {
+  if (!confirm("Скрыть этого пользователя? Он больше не сможет войти, но его старые записи в журнале останутся.")) return;
   try {
     await apiAuth(`/users/${id}`, { method: "DELETE" });
     await loadUsers();
   } catch (err) {
-    alert("Не удалось удалить: " + err.message);
+    alert("Не удалось скрыть: " + err.message);
   }
 }
 
