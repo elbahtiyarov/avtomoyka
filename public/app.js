@@ -1,5 +1,12 @@
 // Автомойка — фронтенд: вход по логину/паролю (JWT), журнал записей, каталог услуг
 
+// Принудительно включаем мобильный вид на реальных Android/iPhone — даже если в
+// браузере включён режим "Версия для компьютера" и он выдаёт себя за широкий экран.
+// Обычные CSS-медиазапросы реагируют только на ширину окна, а это её обманывает.
+if (/Android|iPhone|iPod/i.test(navigator.userAgent)) {
+  document.documentElement.classList.add("force-mobile");
+}
+
 // --- Светлая/тёмная тема — применяется сразу, до входа, чтобы не было "мигания" ---
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
@@ -471,7 +478,6 @@ async function loadSummary() {
     const s = await apiRecords("/summary/today");
     document.getElementById("kpiCars").textContent = s.cars_count;
     document.getElementById("kpiRevenue").textContent = fmt(s.total_revenue);
-    document.getElementById("kpiAvg").textContent = fmt(s.avg_check);
   } catch (err) { /* сводка необязательна */ }
 }
 
@@ -492,6 +498,15 @@ function paymentIcon(r) {
   if (cash > 0 && qr > 0) return "💵📱";
   if (qr > 0) return "📱";
   if (cash > 0) return "💵";
+  return "—";
+}
+
+function paymentLabel(r) {
+  const cash = Number(r.amount_cash) || 0;
+  const qr = Number(r.amount_qr) || 0;
+  if (cash > 0 && qr > 0) return "💳 Смешанно";
+  if (qr > 0) return "📱 QR";
+  if (cash > 0) return "💵 Наличные";
   return "—";
 }
 
@@ -534,20 +549,23 @@ function render() {
     const dateFmt = new Date(r.service_date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
     const svcText = (r.services || []).map(s => s.name).join(", ") || "—";
     return `<div class="rec-card">
-      <div class="rec-icon">🚙</div>
-      <div class="rec-info">
+      <div class="rec-card-top">
         <div class="rec-title">${escapeHtml(r.car_brand)} · ${escapeHtml(r.car_number)}</div>
-        <div class="rec-meta">
-          <span>${dateFmt}</span>
-          <span>· ${escapeHtml(r.bay_name || "—")}</span>
-          <span>· ${escapeHtml(svcText)}</span>
-          <span>· ${paymentIcon(r)}</span>
-          <span>· ${escapeHtml(r.received_by || r.staff_name || "—")}</span>
+        <div class="rec-amount">${fmt(r.price)}</div>
+      </div>
+      <div class="rec-badges">
+        <span class="rec-badge">📅 ${dateFmt}</span>
+        <span class="rec-badge">📍 ${escapeHtml(r.bay_name || "—")}</span>
+        <span class="rec-badge">${paymentLabel(r)}</span>
+      </div>
+      <div class="rec-services">🧴 ${escapeHtml(svcText)}</div>
+      <div class="rec-card-footer">
+        <span class="rec-staff">👤 ${escapeHtml(r.received_by || r.staff_name || "—")}</span>
+        <div class="rec-actions">
+          ${currentUser.role === "admin" ? `<button class="rec-action-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
+          <button class="rec-action-btn" onclick="removeRecord(${r.id})">🗑</button>
         </div>
       </div>
-      <div class="rec-amount">${fmt(r.price)}</div>
-      ${currentUser.role === "admin" ? `<button class="del-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
-      <button class="del-btn" onclick="removeRecord(${r.id})">🗑</button>
     </div>`;
   }).join("");
 }
@@ -562,7 +580,7 @@ async function removeRecord(id) {
   if (!confirm("Удалить эту запись?")) return;
   try {
     await apiRecords(`/${id}`, { method: "DELETE" });
-    records = records.filter(r => r.id !== id);
+    records = records.filter(r => String(r.id) !== String(id));
     render();
     loadSummary();
   } catch (err) {
@@ -575,7 +593,7 @@ let editingRecordId = null;
 
 function openForm(recordId) {
   editingRecordId = recordId || null;
-  const record = editingRecordId ? records.find(r => r.id === editingRecordId) : null;
+  const record = editingRecordId ? records.find(r => String(r.id) === String(editingRecordId)) : null;
 
   document.getElementById("modalTitle").textContent = record ? "Редактировать запись" : "Новая запись";
   document.getElementById("saveBtnLabel").textContent = record ? "Сохранить изменения" : "Сохранить запись";

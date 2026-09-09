@@ -134,14 +134,19 @@ button{cursor:pointer;border:none;}
 .del-btn{background:transparent;color:var(--muted);opacity:0;transition:opacity .15s;font-size:15px;}
 tr:hover .del-btn{opacity:1;}
 
-.card-list{display:flex;flex-direction:column;gap:8px;}
-.rec-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;}
-.rec-icon{width:38px;height:38px;border-radius:50%;background:var(--surface2);color:var(--blue-deep);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px;}
-.rec-info{flex:1;min-width:0;}
-.rec-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rec-meta{color:var(--muted);font-size:12px;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;}
-.rec-amount{font-size:14px;font-weight:700;color:var(--blue-deep);white-space:nowrap;}
-.rec-card .del-btn{opacity:1;}
+.card-list{display:flex;flex-direction:column;gap:10px;}
+.rec-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;}
+.rec-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.rec-title{font-size:15px;font-weight:700;color:var(--text);line-height:1.3;}
+.rec-amount{font-size:16px;font-weight:700;color:var(--blue-deep);white-space:nowrap;flex-shrink:0;}
+.rec-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.rec-badge{background:var(--surface2);color:var(--muted);font-size:12px;font-weight:500;padding:4px 9px;border-radius:999px;white-space:nowrap;}
+.rec-services{color:var(--text);font-size:13px;margin-bottom:10px;line-height:1.4;}
+.rec-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid var(--border);}
+.rec-staff{color:var(--muted);font-size:12px;font-weight:500;}
+.rec-actions{display:flex;gap:4px;}
+.rec-action-btn{background:var(--surface2);border-radius:8px;padding:6px 10px;font-size:14px;color:var(--muted);}
+.rec-action-btn:active{background:var(--border);}
 
 .modal-overlay{display:none;position:fixed;inset:0;z-index:55;background:rgba(18,38,66,.55);align-items:flex-end;justify-content:center;}
 .modal{width:100%;max-width:440px;background:var(--surface);border-radius:18px 18px 0 0;padding:20px;max-height:92vh;overflow-y:auto;}
@@ -297,7 +302,7 @@ tr:hover .del-btn{opacity:1;}
   .mobile-bar{display:none;}
   .table-wrap{display:block;}
   .card-list{display:none;}
-  .kpi-grid{grid-template-columns:repeat(3,1fr);}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);}
   .modal-overlay{align-items:center;}
   .modal{border-radius:18px;}
   .fab-add-btn{right:32px;bottom:32px;}
@@ -334,3 +339,21 @@ button, .nav-item, a{ -webkit-tap-highlight-color: transparent; }
   .fab-add-btn span{display:none;}
   .fab-add-btn{padding:14px 16px;}
 }
+
+/* Принудительный мобильный режим для настоящих Android/iPhone (класс ставится в app.js) —
+   перебивает медиазапросы на случай, если браузер сообщает "десктопную" ширину экрана
+   (режим "Версия для компьютера") */
+html.force-mobile .sidebar{
+  position:fixed !important;
+  transform:translateX(-100%) !important;
+  transition:transform .25s ease !important;
+  box-shadow:0 0 32px rgba(15,23,32,.25) !important;
+}
+html.force-mobile .sidebar.mobile-open{transform:translateX(0) !important;}
+html.force-mobile .mobile-bar{display:flex !important;}
+html.force-mobile .table-wrap{display:none !important;}
+html.force-mobile .card-list{display:flex !important;}
+html.force-mobile .kpi-grid{grid-template-columns:1fr !important;}
+html.force-mobile .modal-overlay{align-items:flex-end !important;}
+html.force-mobile .modal{border-radius:18px 18px 0 0 !important;}
+html.force-mobile .fab-add-btn{right:20px !important;bottom:calc(20px + env(safe-area-inset-bottom)) !important;}
