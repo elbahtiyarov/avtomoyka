@@ -273,6 +273,14 @@ tr:hover .del-btn{opacity:1;}
 .client-card .cc-redeem button{font-size:11px;padding:6px 8px;border-radius:7px;background:var(--blue-soft);color:var(--blue-deep);font-weight:600;white-space:nowrap;}
 .client-card .otp-status{margin-top:6px;font-size:12px;color:var(--muted);}
 
+/* Модалка расходов */
+.expense-row{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px;gap:8px;}
+.expense-row:last-child{border-bottom:none;}
+.expense-row .exp-desc{flex:1;min-width:0;}
+.expense-row .exp-date{color:var(--muted);font-size:11px;}
+.expense-row .exp-amount{font-weight:700;color:var(--danger);white-space:nowrap;}
+.expense-row .exp-del{background:transparent;color:var(--muted);font-size:13px;padding:2px 6px;}
+
 .user-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;}
 .user-row:last-child{border-bottom:none;}
 .user-row .u-role{color:var(--muted);font-size:11px;}

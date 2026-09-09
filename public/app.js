@@ -65,6 +65,7 @@ const apiRecords = (path, opts) => api(path, "/api/records", opts);
 const apiServices = (path, opts) => api(path, "/api/services", opts);
 const apiBays = (path, opts) => api(path, "/api/bays", opts);
 const apiWashers = (path, opts) => api(path, "/api/washers", opts);
+const apiExpenses = (path, opts) => api(path, "/api/expenses", opts);
 const apiClients = (path, opts) => api(path, "/api/clients", opts);
 const apiLoyalty = (path, opts) => api(path, "/api/loyalty", opts);
 const apiPayroll = (path, opts) => api(path, "/api/payroll", opts);
@@ -137,6 +138,7 @@ async function showApp() {
   document.getElementById("loyaltyForm").addEventListener("submit", submitLoyaltySettings);
   document.getElementById("payrollForm").addEventListener("submit", submitPayrollSettings);
   document.getElementById("newWasherForm").addEventListener("submit", submitNewWasher);
+  document.getElementById("newExpenseForm").addEventListener("submit", submitNewExpense);
 
   await loadServices();
   await loadBays();
@@ -362,6 +364,68 @@ async function submitNewWasher(e) {
     document.getElementById("newWasherForm").reset();
   } catch (err) {
     alert("Не удалось добавить: " + err.message);
+  }
+}
+
+// --- Расходы (мастер, ремонт, закупки и т.п.) — списываются из наличной кассы ---
+async function openExpensesPanel() {
+  document.getElementById("expensesOverlay").style.display = "flex";
+  document.getElementById("expNewDate").value = todayStr();
+  await loadExpensesPanel();
+}
+function closeExpensesPanel() { document.getElementById("expensesOverlay").style.display = "none"; }
+
+async function loadExpensesPanel() {
+  const el = document.getElementById("expensesList");
+  el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Загрузка…</div>`;
+  try {
+    const list = await apiExpenses("");
+    if (list.length === 0) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Пока нет расходов</div>`;
+      return;
+    }
+    el.innerHTML = list.map(e => `
+      <div class="expense-row">
+        <div class="exp-desc">
+          <div>${escapeHtml(e.description)}</div>
+          <div class="exp-date">${new Date(e.expense_date).toLocaleDateString("ru-RU")} · ${escapeHtml(e.staff_name || "—")}</div>
+        </div>
+        <div class="exp-amount">−${fmt(e.amount)}</div>
+        <button class="exp-del" onclick="deleteExpense(${e.id})">🗑</button>
+      </div>
+    `).join("");
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger);font-size:13px;">${err.message}</div>`;
+  }
+}
+
+async function submitNewExpense(e) {
+  e.preventDefault();
+  const payload = {
+    expense_date: document.getElementById("expNewDate").value,
+    description: document.getElementById("expNewDescription").value.trim(),
+    amount: Number(document.getElementById("expNewAmount").value),
+  };
+  if (!payload.description || payload.amount == null || payload.amount < 0) {
+    return alert("Заполните дату, описание и сумму");
+  }
+  try {
+    await apiExpenses("", { method: "POST", body: JSON.stringify(payload) });
+    document.getElementById("newExpenseForm").reset();
+    document.getElementById("expNewDate").value = todayStr();
+    await loadExpensesPanel();
+  } catch (err) {
+    alert("Не удалось добавить расход: " + err.message);
+  }
+}
+
+async function deleteExpense(id) {
+  if (!confirm("Удалить этот расход?")) return;
+  try {
+    await apiExpenses(`/${id}`, { method: "DELETE" });
+    await loadExpensesPanel();
+  } catch (err) {
+    alert("Не удалось удалить: " + err.message);
   }
 }
 
@@ -803,6 +867,15 @@ async function loadReport() {
       </tr>
     `).join("");
 
+    const expenseRows = (r.expenses || []).map(e => `
+      <tr>
+        <td>${new Date(e.expense_date).toLocaleDateString("ru-RU")}</td>
+        <td>${escapeHtml(e.description)}</td>
+        <td>${escapeHtml(e.staff_name || "—")}</td>
+        <td>${fmt(e.amount)}</td>
+      </tr>
+    `).join("");
+
     bodyEl.innerHTML = `
       <div class="report-kpi-grid">
         <div class="report-kpi"><div class="rk-label">Машин</div><div class="rk-value">${r.cars_count}</div></div>
@@ -811,6 +884,7 @@ async function loadReport() {
         <div class="report-kpi"><div class="rk-label">QR</div><div class="rk-value">${fmt(r.total_qr)}</div></div>
         <div class="report-kpi"><div class="rk-label">Бонусами оплачено</div><div class="rk-value">${fmt(r.total_bonus_redeemed)}</div></div>
         <div class="report-kpi"><div class="rk-label">Процент админа (${r.admin_percent}%)</div><div class="rk-value">${fmt(r.admin_cut)}</div></div>
+        <div class="report-kpi"><div class="rk-label">Расходы</div><div class="rk-value" style="color:var(--danger);">−${fmt(r.total_expenses)}</div></div>
       </div>
 
       <table class="washer-table">
@@ -819,8 +893,16 @@ async function loadReport() {
         <tfoot><tr><td colspan="3">Итого зарплата мойщикам</td><td>${fmt(r.washer_total)}</td></tr></tfoot>
       </table>
 
+      ${(r.expenses || []).length > 0 ? `
+        <table class="washer-table">
+          <thead><tr><th>Дата</th><th>За что</th><th>Кто внёс</th><th>Сумма</th></tr></thead>
+          <tbody>${expenseRows}</tbody>
+          <tfoot><tr><td colspan="3">Итого расходов</td><td>${fmt(r.total_expenses)}</td></tr></tfoot>
+        </table>
+      ` : ""}
+
       <div class="report-highlight">
-        <div class="rk-label">Наличными сдать (наличные − ЗП мойщиков − процент админа)</div>
+        <div class="rk-label">Наличными сдать (наличные − ЗП мойщиков − процент админа − расходы)</div>
         <div class="rk-value">${fmt(r.cash_to_handover)}</div>
       </div>
     `;
@@ -839,6 +921,10 @@ function downloadReportPdf() {
 
   const washerRows = r.washer_breakdown.map(w => `
     <tr><td>${escapeHtml(w.name)}</td><td>${w.cars_count}</td><td>${fmt(w.revenue)}</td><td>${fmt(w.salary)}</td></tr>
+  `).join("");
+
+  const expenseRows = (r.expenses || []).map(e => `
+    <tr><td>${new Date(e.expense_date).toLocaleDateString("ru-RU")}</td><td>${escapeHtml(e.description)}</td><td>${escapeHtml(e.staff_name || "—")}</td><td>${fmt(e.amount)}</td></tr>
   `).join("");
 
   const html = `<!DOCTYPE html>
@@ -869,14 +955,22 @@ function downloadReportPdf() {
     <div class="kpi"><div class="kpi-label">QR</div><div class="kpi-value">${fmt(r.total_qr)}</div></div>
     <div class="kpi"><div class="kpi-label">Бонусами оплачено</div><div class="kpi-value">${fmt(r.total_bonus_redeemed)}</div></div>
     <div class="kpi"><div class="kpi-label">Процент админа (${r.admin_percent}%)</div><div class="kpi-value">${fmt(r.admin_cut)}</div></div>
+    <div class="kpi"><div class="kpi-label">Расходы</div><div class="kpi-value">−${fmt(r.total_expenses)}</div></div>
   </div>
   <table>
     <thead><tr><th>Мойщик</th><th>Машин</th><th>Выручка</th><th>ЗП (${r.washer_percent}%)</th></tr></thead>
     <tbody>${washerRows || `<tr><td colspan="4">Записей нет</td></tr>`}</tbody>
     <tfoot><tr><td colspan="3">Итого зарплата мойщикам</td><td>${fmt(r.washer_total)}</td></tr></tfoot>
   </table>
+  ${expenseRows ? `
+  <table>
+    <thead><tr><th>Дата</th><th>За что</th><th>Кто внёс</th><th>Сумма</th></tr></thead>
+    <tbody>${expenseRows}</tbody>
+    <tfoot><tr><td colspan="3">Итого расходов</td><td>${fmt(r.total_expenses)}</td></tr></tfoot>
+  </table>
+  ` : ""}
   <div class="final">
-    <div class="kpi-label">Наличными сдать (наличные − ЗП мойщиков − процент админа)</div>
+    <div class="kpi-label">Наличными сдать (наличные − ЗП мойщиков − процент админа − расходы)</div>
     <div class="kpi-value">${fmt(r.cash_to_handover)}</div>
   </div>
 </body></html>`;

@@ -11,6 +11,18 @@ CREATE TABLE IF NOT EXISTS users (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Расходы (мастер, ремонт, закупки и т.п.) — списываются из наличной кассы,
+-- поэтому учитываются в отчёте при расчёте суммы к сдаче
+CREATE TABLE IF NOT EXISTS expenses (
+    id            BIGSERIAL PRIMARY KEY,
+    expense_date  DATE NOT NULL,
+    description   TEXT NOT NULL,
+    amount        NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+    staff_id      INTEGER REFERENCES users(id),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (expense_date DESC, id DESC);
+
 CREATE TABLE IF NOT EXISTS services (
     id          SERIAL PRIMARY KEY,
     name        TEXT NOT NULL UNIQUE,

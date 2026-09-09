@@ -6,6 +6,7 @@ const { WebSocketServer } = require("ws");
 
 const authRouter = require("./routes/auth");
 const recordsRouter = require("./routes/records");
+const expensesRouter = require("./routes/expenses");
 const servicesRouter = require("./routes/services");
 const baysRouter = require("./routes/bays");
 const washersRouter = require("./routes/washers");
@@ -25,6 +26,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 
 app.use("/api/auth", authRouter);              // логин — без авторизации
 app.use("/api/records", requireAuth, recordsRouter);
+app.use("/api/expenses", requireAuth, expensesRouter);
 app.use("/api/services", requireAuth, servicesRouter);
 app.use("/api/bays", requireAuth, baysRouter);
 app.use("/api/washers", requireAuth, washersRouter);

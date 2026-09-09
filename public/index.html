@@ -42,6 +42,7 @@
     <div class="nav-item" style="cursor:pointer;" onclick="openServicesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> Услуги</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openWashersPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg> Мойщики</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openClientsPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg> Клиенты</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openExpensesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Расходы</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openReportPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Отчёт</div>
     <div class="nav-item" id="loyaltyNavItem" style="display:none;cursor:pointer;" onclick="openLoyaltySettings()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg> Бонусы</div>
     <div class="nav-item" id="usersNavItem" style="display:none;cursor:pointer;" onclick="openUsers()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Пользователи</div>
@@ -320,6 +321,28 @@
         <input type="text" id="wshNewName" required placeholder="напр. Асхат">
       </div>
       <button type="submit" class="save-btn">Добавить мойщика</button>
+    </form>
+  </div>
+</div>
+
+<!-- Модалка расходов -->
+<div class="modal-overlay" id="expensesOverlay" onclick="closeExpensesPanel()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Расходы</div>
+      <button class="close-btn" onclick="closeExpensesPanel()">✕</button>
+    </div>
+    <div id="expensesList" style="margin-bottom:16px;"></div>
+    <form id="newExpenseForm">
+      <div class="field-row">
+        <div class="field"><label>Дата</label><input type="date" id="expNewDate" required></div>
+        <div class="field"><label>Сумма, ₸</label><input type="number" id="expNewAmount" min="0" required placeholder="0"></div>
+      </div>
+      <div class="field">
+        <label>За что</label>
+        <input type="text" id="expNewDescription" required placeholder="напр. Вызов мастера — ремонт пылесоса">
+      </div>
+      <button type="submit" class="save-btn">Добавить расход</button>
     </form>
   </div>
 </div>

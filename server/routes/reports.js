@@ -7,17 +7,21 @@ const pool = require("../db");
 router.get("/shift", async (req, res, next) => {
   try {
     const { date, date_from, date_to } = req.query;
-    const conditions = [];
-    const params = [];
-    let i = 1;
 
-    if (date) { conditions.push(`service_date = $${i++}`); params.push(date); }
-    if (date_from) { conditions.push(`service_date >= $${i++}`); params.push(date_from); }
-    if (date_to) { conditions.push(`service_date <= $${i++}`); params.push(date_to); }
+    // Строим фильтр один раз для обеих таблиц — колонка с датой называется по-разному
+    const dateParams = [];
+    let j = 1;
+    const recCond = [];
+    const expCond = [];
+    if (date) { dateParams.push(date); recCond.push(`service_date = $${j}`); expCond.push(`expense_date = $${j}`); j++; }
+    if (date_from) { dateParams.push(date_from); recCond.push(`service_date >= $${j}`); expCond.push(`expense_date >= $${j}`); j++; }
+    if (date_to) { dateParams.push(date_to); recCond.push(`service_date <= $${j}`); expCond.push(`expense_date <= $${j}`); j++; }
     if (!date && !date_from && !date_to) {
-      conditions.push(`service_date = CURRENT_DATE`);
+      recCond.push(`service_date = CURRENT_DATE`);
+      expCond.push(`expense_date = CURRENT_DATE`);
     }
-    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+    const where = recCond.length ? "WHERE " + recCond.join(" AND ") : "";
+    const expWhere = expCond.length ? "WHERE " + expCond.join(" AND ") : "";
 
     const { rows: totalsRows } = await pool.query(
       `SELECT
@@ -27,7 +31,7 @@ router.get("/shift", async (req, res, next) => {
          COALESCE(SUM(amount_qr), 0)     AS total_qr,
          COALESCE(SUM(points_redeemed), 0) AS total_bonus_redeemed
        FROM records ${where}`,
-      params
+      dateParams
     );
     const t = totalsRows[0];
 
@@ -38,8 +42,20 @@ router.get("/shift", async (req, res, next) => {
        FROM records ${where}
        GROUP BY name
        ORDER BY revenue DESC`,
-      params
+      dateParams
     );
+
+    const { rows: expenseRows } = await pool.query(
+      `SELECT e.*, u.name AS staff_name
+       FROM expenses e
+       LEFT JOIN users u ON u.id = e.staff_id
+       ${expWhere}
+       ORDER BY e.expense_date DESC, e.id DESC`,
+      dateParams
+    );
+    const totalExpenses = Math.round(
+      expenseRows.reduce((sum, e) => sum + Number(e.amount), 0) * 100
+    ) / 100;
 
     const { rows: settingsRows } = await pool.query("SELECT * FROM payroll_settings WHERE id = 1");
     const settings = settingsRows[0];
@@ -52,7 +68,9 @@ router.get("/shift", async (req, res, next) => {
     }));
     const washerTotal = Math.round(washerBreakdown.reduce((sum, w) => sum + w.salary, 0) * 100) / 100;
     const adminCut = Math.round(Number(t.total_revenue) * (settings.admin_percent / 100) * 100) / 100;
-    const cashToHandover = Math.round((Number(t.total_cash) - washerTotal - adminCut) * 100) / 100;
+    const cashToHandover = Math.round(
+      (Number(t.total_cash) - washerTotal - adminCut - totalExpenses) * 100
+    ) / 100;
 
     res.json({
       cars_count: Number(t.cars_count),
@@ -65,6 +83,14 @@ router.get("/shift", async (req, res, next) => {
       washer_percent: Number(settings.washer_percent),
       washer_breakdown: washerBreakdown,
       washer_total: washerTotal,
+      total_expenses: totalExpenses,
+      expenses: expenseRows.map(e => ({
+        id: e.id,
+        expense_date: e.expense_date,
+        description: e.description,
+        amount: Number(e.amount),
+        staff_name: e.staff_name,
+      })),
       cash_to_handover: cashToHandover,
     });
   } catch (err) {

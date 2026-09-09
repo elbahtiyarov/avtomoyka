@@ -46,3 +46,7 @@ INSERT INTO record_services (record_id, service_id, service_name, service_price)
 SELECT r1.id, s.id, s.name, s.price FROM r1, services s WHERE s.name IN ('Комплексная мойка', 'Химчистка салона')
 UNION ALL
 SELECT r2.id, s.id, s.name, s.price FROM r2, services s WHERE s.name = 'Мойка кузова';
+
+-- Демо-расход (например, вызвали мастера починить пылесос)
+INSERT INTO expenses (expense_date, description, amount, staff_id)
+SELECT CURRENT_DATE, 'Ремонт пылесоса', 4000, id FROM users WHERE username = 'erlan';
