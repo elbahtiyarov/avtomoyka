@@ -204,12 +204,18 @@ function renderServicesPanel() {
     el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Пока нет услуг</div>`;
     return;
   }
-  el.innerHTML = services.map(s => `
+  const isAdmin = currentUser.role === "admin";
+  el.innerHTML = services.map(s => isAdmin ? `
     <div class="svc-edit-row">
       <input type="text" id="svcName-${s.id}" value="${escapeHtml(s.name)}">
       <input type="number" id="svcPrice-${s.id}" value="${s.price}" min="0">
       <button type="button" class="svc-save" onclick="saveService(${s.id})">Сохранить</button>
       <button type="button" class="svc-hide" onclick="hideService(${s.id})">Скрыть</button>
+    </div>
+  ` : `
+    <div class="svc-edit-row">
+      <span style="flex:2;">${escapeHtml(s.name)}</span>
+      <span style="color:var(--muted);">${fmt(s.price)}</span>
     </div>
   `).join("");
 }
@@ -323,11 +329,16 @@ function renderWashersPanel() {
     el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Пока нет мойщиков</div>`;
     return;
   }
-  el.innerHTML = washers.map(w => `
+  const isAdmin = currentUser.role === "admin";
+  el.innerHTML = washers.map(w => isAdmin ? `
     <div class="svc-edit-row">
       <input type="text" id="wshName-${w.id}" value="${escapeHtml(w.name)}">
       <button type="button" class="svc-save" onclick="saveWasher(${w.id})">Сохранить</button>
       <button type="button" class="svc-hide" onclick="hideWasher(${w.id})">Скрыть</button>
+    </div>
+  ` : `
+    <div class="svc-edit-row">
+      <span>${escapeHtml(w.name)}</span>
     </div>
   `).join("");
 }
@@ -540,7 +551,7 @@ function render() {
       <td>${sigCell}</td>
       <td>
         ${currentUser.role === "admin" ? `<button class="del-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
-        <button class="del-btn" onclick="removeRecord(${r.id})">🗑</button>
+        ${currentUser.role === "admin" ? `<button class="del-btn" onclick="removeRecord(${r.id})">🗑</button>` : ""}
       </td>
     </tr>`;
   }).join("");
@@ -563,7 +574,7 @@ function render() {
         <span class="rec-staff">👤 ${escapeHtml(r.received_by || r.staff_name || "—")}</span>
         <div class="rec-actions">
           ${currentUser.role === "admin" ? `<button class="rec-action-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
-          <button class="rec-action-btn" onclick="removeRecord(${r.id})">🗑</button>
+          ${currentUser.role === "admin" ? `<button class="rec-action-btn" onclick="removeRecord(${r.id})">🗑</button>` : ""}
         </div>
       </div>
     </div>`;

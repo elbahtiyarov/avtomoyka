@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { requireAdmin } = require("../middleware/auth");
 
 // Список активных услуг (для чекбоксов)
 router.get("/", async (req, res, next) => {
@@ -34,8 +35,8 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// Изменить существующую услугу (название/цена)
-router.put("/:id", async (req, res, next) => {
+// Изменить существующую услугу (название/цена) — только админ
+router.put("/:id", requireAdmin, async (req, res, next) => {
   try {
     const { name, price } = req.body;
     if (!name || !name.trim() || price == null || price < 0) {
@@ -56,8 +57,8 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
-// Скрыть услугу из списка (не удаляем — она может быть в старых записях)
-router.delete("/:id", async (req, res, next) => {
+// Скрыть услугу из списка (не удаляем — она может быть в старых записях) — только админ
+router.delete("/:id", requireAdmin, async (req, res, next) => {
   try {
     await pool.query("UPDATE services SET active = false WHERE id = $1", [req.params.id]);
     res.status(204).send();

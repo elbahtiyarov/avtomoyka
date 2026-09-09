@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { requireAdmin } = require("../middleware/auth");
 
 // Список активных мойщиков (для выпадающего списка в форме записи)
 router.get("/", async (req, res, next) => {
@@ -34,8 +35,8 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// Переименовать мойщика
-router.put("/:id", async (req, res, next) => {
+// Переименовать мойщика — только админ
+router.put("/:id", requireAdmin, async (req, res, next) => {
   try {
     const { name } = req.body;
     if (!name || !name.trim()) {
@@ -55,8 +56,8 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
-// Скрыть мойщика из списка (не удаляем — он может быть в старых записях)
-router.delete("/:id", async (req, res, next) => {
+// Скрыть мойщика из списка (не удаляем — он может быть в старых записях) — только админ
+router.delete("/:id", requireAdmin, async (req, res, next) => {
   try {
     await pool.query("UPDATE washers SET active = false WHERE id = $1", [req.params.id]);
     res.status(204).send();

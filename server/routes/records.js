@@ -279,7 +279,7 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
 });
 
 // Удаление записи
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", requireAdmin, async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
