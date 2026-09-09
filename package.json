@@ -8,6 +8,7 @@
     "dev": "nodemon server/index.js",
     "migrate": "node db/migrate.js",
     "migrate:seed": "node db/migrate.js --seed",
+    "migrate:upgrade": "node db/migrate.js --upgrade",
     "migrate:reset": "node db/migrate.js --reset --seed"
   },
   "dependencies": {

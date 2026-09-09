@@ -1,9 +1,10 @@
 // Применяет schema.sql и (опционально) seed.sql к базе, заданной в .env
-// Запуск: node db/migrate.js                 — только схема
-//         node db/migrate.js --seed          — схема + демо-данные
-//         node db/migrate.js --reset --seed  — удалить старые таблицы, создать заново + демо-данные
-//         (--reset нужен, если структура таблиц менялась — CREATE TABLE IF NOT EXISTS
-//          не добавляет новые колонки в уже существующие таблицы)
+// Запуск: node db/migrate.js                   — только схема (для новой пустой базы)
+//         node db/migrate.js --seed            — схема + демо-данные
+//         node db/migrate.js --upgrade         — БЕЗОПАСНО довести существующую базу
+//                                                 до актуальной структуры, ничего не удаляя
+//         node db/migrate.js --reset --seed    — РАЗРУШИТЕЛЬНО: удалить все таблицы и
+//                                                 создать заново с демо-данными
 
 require("dotenv").config();
 const fs = require("fs");
@@ -24,6 +25,13 @@ async function run() {
   console.log("Применяю schema.sql...");
   await pool.query(schema);
   console.log("Схема готова.");
+
+  if (process.argv.includes("--upgrade")) {
+    const upgrade = fs.readFileSync(path.join(__dirname, "upgrade.sql"), "utf8");
+    console.log("Применяю upgrade.sql (безопасно, без потери данных)...");
+    await pool.query(upgrade);
+    console.log("База обновлена, старые данные на месте.");
+  }
 
   if (process.argv.includes("--seed")) {
     const seed = fs.readFileSync(path.join(__dirname, "seed.sql"), "utf8");
