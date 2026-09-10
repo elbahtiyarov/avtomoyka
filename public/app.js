@@ -26,7 +26,26 @@ window.addEventListener("beforeinstallprompt", (e) => {
 
 function openInstallOptions() {
   document.getElementById("installInstructionsBlock").style.display = "none";
+  document.getElementById("installIncognitoWarning").style.display = "none";
   document.getElementById("installOverlay").style.display = "flex";
+  checkLikelyIncognito();
+}
+
+// Надёжного способа спросить браузер "я в инкогнито?" не существует — это скрывается
+// намеренно. Используем известный побочный признак: Chrome в обычном режиме даёт сайту
+// квоту хранилища в сотни МБ/несколько ГБ, а в инкогнито — обычно не больше ~120 МБ.
+// На iPhone эту проверку не делаем: там "На экран «Домой»" — ручное действие через
+// Safari, а не через это API браузера, и оно работает даже в приватном режиме.
+async function checkLikelyIncognito() {
+  if (/iPhone|iPod|iPad/i.test(navigator.userAgent)) return;
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const { quota } = await navigator.storage.estimate();
+      if (quota && quota < 120 * 1024 * 1024) {
+        document.getElementById("installIncognitoWarning").style.display = "block";
+      }
+    }
+  } catch (err) { /* признак недоступен — просто не показываем предупреждение */ }
 }
 function closeInstallOptions() {
   document.getElementById("installOverlay").style.display = "none";

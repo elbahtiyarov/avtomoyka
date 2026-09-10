@@ -47,6 +47,11 @@
       <div class="modal-title">Установить приложение</div>
       <button class="close-btn" onclick="closeInstallOptions()">✕</button>
     </div>
+    <div id="installIncognitoWarning" class="error-state" style="display:none;">
+      Похоже, это режим инкогнито — браузеры не разрешают устанавливать приложения в
+      этом режиме (так устроен сам Chrome/Edge, это нельзя обойти на сайте).
+      Откройте сайт в обычном окне, и кнопка сработает.
+    </div>
     <div class="install-platform-row">
       <button type="button" class="install-platform-btn" onclick="installFor('ios')">
         <span class="install-platform-icon">📱</span> iPhone
