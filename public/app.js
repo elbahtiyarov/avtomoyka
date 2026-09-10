@@ -14,6 +14,41 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+// --- Кнопка "Скачать приложение" на экране входа ---
+// Chrome/Edge (Android и компьютер) сами присылают это событие и позволяют показать
+// системное окно установки по клику. iOS Safari так не умеет — там показываем
+// текстовую инструкцию (Apple не даёт запускать установку из кода страницы).
+let deferredInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+function openInstallOptions() {
+  document.getElementById("installInstructionsBlock").style.display = "none";
+  document.getElementById("installOverlay").style.display = "flex";
+}
+function closeInstallOptions() {
+  document.getElementById("installOverlay").style.display = "none";
+}
+
+async function installFor(platform) {
+  if (platform !== "ios" && deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    closeInstallOptions();
+    return;
+  }
+  const instructions = {
+    ios: "1. Нажмите кнопку «Поделиться» (квадрат со стрелкой вверх) внизу экрана Safari.\n2. Выберите «На экран «Домой»».\n3. Нажмите «Добавить» в правом верхнем углу.",
+    android: "1. Откройте меню браузера (⋮) в правом верхнем углу Chrome.\n2. Выберите «Установить приложение» или «Добавить на главный экран».\n3. Подтвердите установку.",
+    desktop: "1. В адресной строке справа найдите значок установки (обычно ⊕ или экран со стрелкой).\n2. Нажмите его и подтвердите установку.\n\nЕсли значка нет — откройте меню браузера (⋮) → «Установить Автомойка…».",
+  };
+  document.getElementById("installInstructionsText").textContent = instructions[platform] || instructions.desktop;
+  document.getElementById("installInstructionsBlock").style.display = "block";
+}
+
 // --- Светлая/тёмная тема — применяется сразу, до входа, чтобы не было "мигания" ---
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);

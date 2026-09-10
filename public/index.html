@@ -36,6 +36,31 @@
       </div>
       <button type="submit" class="save-btn">Войти</button>
     </form>
+    <button type="button" class="install-app-btn" onclick="openInstallOptions()">📲 Скачать приложение</button>
+  </div>
+</div>
+
+<!-- Модалка установки приложения (iOS / Android / Desktop) -->
+<div class="modal-overlay" id="installOverlay" onclick="closeInstallOptions()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Установить приложение</div>
+      <button class="close-btn" onclick="closeInstallOptions()">✕</button>
+    </div>
+    <div class="install-platform-row">
+      <button type="button" class="install-platform-btn" onclick="installFor('ios')">
+        <span class="install-platform-icon">📱</span> iPhone
+      </button>
+      <button type="button" class="install-platform-btn" onclick="installFor('android')">
+        <span class="install-platform-icon">🤖</span> Android
+      </button>
+      <button type="button" class="install-platform-btn" onclick="installFor('desktop')">
+        <span class="install-platform-icon">💻</span> Компьютер
+      </button>
+    </div>
+    <div id="installInstructionsBlock" style="display:none;">
+      <div id="installInstructionsText" class="install-instructions"></div>
+    </div>
   </div>
 </div>
 
