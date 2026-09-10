@@ -27,6 +27,10 @@ ALTER TABLE records DROP COLUMN IF EXISTS visit_discount_applied;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS otp_code_hash TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS otp_expires_at TIMESTAMPTZ;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS otp_attempts INTEGER NOT NULL DEFAULT 0;
+-- clients: отдельные поля для входа в личный кабинет клиента (не путать с кодом на списание)
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_otp_code_hash TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_otp_expires_at TIMESTAMPTZ;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS portal_otp_attempts INTEGER NOT NULL DEFAULT 0;
 
 -- loyalty_settings: упростили до одного процента баллов, убрали скидку за визиты
 ALTER TABLE loyalty_settings DROP COLUMN IF EXISTS visits_threshold;

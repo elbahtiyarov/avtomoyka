@@ -14,6 +14,7 @@ const clientsRouter = require("./routes/clients");
 const loyaltyRouter = require("./routes/loyalty");
 const payrollRouter = require("./routes/payroll");
 const reportsRouter = require("./routes/reports");
+const clientPortalRouter = require("./routes/clientPortal");
 const errorHandler = require("./middleware/errorHandler");
 const { requireAuth } = require("./middleware/auth");
 
@@ -34,6 +35,7 @@ app.use("/api/clients", requireAuth, clientsRouter);
 app.use("/api/loyalty", requireAuth, loyaltyRouter);
 app.use("/api/payroll", requireAuth, payrollRouter);
 app.use("/api/reports", requireAuth, reportsRouter);
+app.use("/api/client-portal", clientPortalRouter);
 
 app.use(errorHandler);
 

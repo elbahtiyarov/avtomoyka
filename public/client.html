@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Мои бонусы — Автомойка</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1657A6">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="login-screen" id="portalScreen">
+  <button type="button" class="theme-toggle-corner theme-toggle-btn" data-compact="true" onclick="toggleTheme()">🌙</button>
+  <div class="login-box">
+    <div class="brand" style="margin-bottom:20px;justify-content:center;">
+      <div class="brand-icon">🚗</div>
+      <div><div class="brand-title">Автомойка</div><div class="brand-sub">Личный кабинет клиента</div></div>
+    </div>
+
+    <div id="portalError" class="error-state" style="display:none;"></div>
+
+    <!-- Шаг 1: телефон -->
+    <form id="phoneForm">
+      <div class="field">
+        <label>Номер телефона</label>
+        <input type="text" id="pPhone" required placeholder="напр. +7 707 123 45 67" autocomplete="tel">
+      </div>
+      <button type="submit" class="save-btn">Получить код</button>
+    </form>
+
+    <!-- Шаг 2: код из SMS -->
+    <form id="codeForm" style="display:none;">
+      <div class="field">
+        <label>Код из SMS</label>
+        <input type="text" id="pCode" required maxlength="4" inputmode="numeric" placeholder="0000" autocomplete="one-time-code">
+      </div>
+      <div id="devCodeHint" class="otp-status" style="display:none;margin-bottom:10px;"></div>
+      <button type="submit" class="save-btn">Войти</button>
+      <button type="button" class="install-app-btn" onclick="backToPhone()">← Изменить номер</button>
+    </form>
+  </div>
+</div>
+
+<div class="login-screen" id="dashboardScreen" style="display:none;">
+  <button type="button" class="theme-toggle-corner theme-toggle-btn" data-compact="true" onclick="toggleTheme()">🌙</button>
+  <div class="login-box">
+    <div class="brand" style="margin-bottom:20px;justify-content:center;">
+      <div class="brand-icon">🚗</div>
+      <div><div class="brand-title">Автомойка</div><div class="brand-sub">Личный кабинет клиента</div></div>
+    </div>
+
+    <div class="client-card" style="display:block;margin-bottom:16px;">
+      <div class="cc-name" id="dName" style="font-size:18px;"></div>
+      <div class="cc-row"><span>Телефон</span><span id="dPhone"></span></div>
+      <div class="cc-row"><span>Визитов на мойке</span><span id="dVisits"></span></div>
+      <div class="report-highlight" style="margin-top:12px;">
+        <div class="rk-label">Баланс баллов</div>
+        <div class="rk-value" id="dPoints">0 ₸</div>
+      </div>
+    </div>
+    <div style="color:var(--muted);font-size:12px;text-align:center;margin-bottom:14px;">
+      Баллами можно оплатить часть следующей мойки — просто назовите свой номер телефона на кассе.
+    </div>
+    <button type="button" class="install-app-btn" onclick="portalLogout()">Выйти</button>
+  </div>
+</div>
+
+<script src="client.js"></script>
+</body>
+</html>

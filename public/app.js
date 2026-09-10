@@ -1096,8 +1096,20 @@ async function openLoyaltySettings() {
   } catch (err) {
     alert("Не удалось загрузить настройки: " + err.message);
   }
+
+  const portalUrl = `${location.origin}/client.html`;
+  document.getElementById("portalLinkText").value = portalUrl;
+  document.getElementById("portalQrCode").src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(portalUrl)}`;
 }
 function closeLoyaltySettings() { document.getElementById("loyaltyOverlay").style.display = "none"; }
+
+function copyPortalLink() {
+  const input = document.getElementById("portalLinkText");
+  input.select();
+  navigator.clipboard?.writeText(input.value).catch(() => {});
+  document.execCommand?.("copy");
+}
 
 async function submitLoyaltySettings(e) {
   e.preventDefault();

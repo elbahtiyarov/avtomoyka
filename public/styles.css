@@ -193,7 +193,7 @@ tr:hover .del-btn{opacity:1;}
   color:var(--text);font-size:12px;font-weight:600;cursor:pointer;
 }
 .install-platform-btn:hover{background:var(--border);}
-.install-platform-icon{font-size:26px;}
+.install-platform-icon{width:28px;height:28px;color:var(--blue-deep);}
 .install-instructions{
   background:var(--surface2);border:1px solid var(--border);border-radius:10px;
   padding:14px;font-size:13px;line-height:1.7;white-space:pre-line;color:var(--text);

@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS clients (
     otp_code_hash   TEXT,                       -- хэш текущего SMS-кода на списание баллов
     otp_expires_at  TIMESTAMPTZ,
     otp_attempts    INTEGER NOT NULL DEFAULT 0,
+    portal_otp_code_hash   TEXT,                 -- отдельный код — для входа в личный кабинет клиента
+    portal_otp_expires_at  TIMESTAMPTZ,
+    portal_otp_attempts    INTEGER NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

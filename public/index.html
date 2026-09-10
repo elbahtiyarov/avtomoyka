@@ -36,6 +36,7 @@
       </div>
       <button type="submit" class="save-btn">Войти</button>
     </form>
+    <a href="client.html" class="install-app-btn" style="display:block;text-align:center;text-decoration:none;">🎁 Узнать свои баллы (для клиентов)</a>
     <button type="button" class="install-app-btn" onclick="openInstallOptions()">📲 Скачать приложение</button>
   </div>
 </div>
@@ -54,13 +55,16 @@
     </div>
     <div class="install-platform-row">
       <button type="button" class="install-platform-btn" onclick="installFor('ios')">
-        <span class="install-platform-icon">📱</span> iPhone
+        <svg class="install-platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.9 2.72-3.433 2.75-1.517.03-2.008-.89-3.744-.89-1.729 0-2.27.87-3.706.92-1.5.05-2.64-1.44-3.6-2.79-1.925-2.75-3.4-7.77-1.428-11.16.98-1.68 2.72-2.75 4.62-2.78 1.437-.03 2.79.98 3.744.98.951 0 2.62-1.21 4.415-1.03.75.03 2.865.31 4.22 2.33-.108.07-2.52 1.48-2.49 4.41.03 3.51 3.06 4.68 3.09 4.7z"/></svg>
+        iPhone
       </button>
       <button type="button" class="install-platform-btn" onclick="installFor('android')">
-        <span class="install-platform-icon">🤖</span> Android
+        <svg class="install-platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48C13.85 1.23 12.95 1 12 1s-1.85.23-2.64.63L7.88.15c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.3 1.3C6.97 3.26 6 5.01 6 7h12c0-1.99-.97-3.74-2.47-4.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z"/></svg>
+        Android
       </button>
       <button type="button" class="install-platform-btn" onclick="installFor('desktop')">
-        <span class="install-platform-icon">💻</span> Компьютер
+        <svg class="install-platform-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8.5v8.5H3V3zm9.5 0H21v8.5h-8.5V3zM3 12.5h8.5V21H3v-8.5zm9.5 0H21V21h-8.5v-8.5z"/></svg>
+        Компьютер
       </button>
     </div>
     <div id="installInstructionsBlock" style="display:none;">
@@ -294,6 +298,21 @@
       </div>
       <button type="submit" class="save-btn">Сохранить настройки</button>
     </form>
+
+    <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
+      <div class="modal-title" style="font-size:14px;margin-bottom:8px;">Как клиент узнает свои баллы</div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:10px;">
+        Распечатайте QR-код и повесьте у кассы — клиент сканирует камерой телефона и
+        сразу попадает в свой личный кабинет (вход по SMS-коду, без пароля).
+      </div>
+      <div style="text-align:center;background:#fff;border-radius:12px;padding:12px;">
+        <img id="portalQrCode" alt="QR-код на личный кабинет клиента" style="width:180px;height:180px;">
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <input type="text" id="portalLinkText" readonly style="flex:1;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;">
+        <button type="button" onclick="copyPortalLink()" style="background:var(--blue-soft);color:var(--blue-deep);font-weight:600;font-size:12px;padding:0 12px;border-radius:8px;white-space:nowrap;">Копировать</button>
+      </div>
+    </div>
   </div>
 </div>
 
