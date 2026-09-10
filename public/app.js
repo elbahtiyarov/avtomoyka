@@ -7,6 +7,13 @@ if (/Android|iPhone|iPod/i.test(navigator.userAgent)) {
   document.documentElement.classList.add("force-mobile");
 }
 
+// Регистрируем service worker — без него браузер не предложит "Установить приложение"
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* не критично */ });
+  });
+}
+
 // --- Светлая/тёмная тема — применяется сразу, до входа, чтобы не было "мигания" ---
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
