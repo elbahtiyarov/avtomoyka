@@ -1,4 +1,4 @@
-// Gwash — фронтенд: вход по логину/паролю (JWT), журнал записей, каталог услуг
+// Aquazone — фронтенд: вход по логину/паролю (JWT), журнал записей, каталог услуг
 
 // Принудительно включаем мобильный вид на реальных Android/iPhone — даже если в
 // браузере включён режим "Версия для компьютера" и он выдаёт себя за широкий экран.
@@ -62,7 +62,7 @@ async function installFor(platform) {
   const instructions = {
     ios: "1. Нажмите кнопку «Поделиться» (квадрат со стрелкой вверх) внизу экрана Safari.\n2. Выберите «На экран «Домой»».\n3. Нажмите «Добавить» в правом верхнем углу.",
     android: "1. Откройте меню браузера (⋮) в правом верхнем углу Chrome.\n2. Выберите «Установить приложение» или «Добавить на главный экран».\n3. Подтвердите установку.",
-    desktop: "1. В адресной строке справа найдите значок установки (обычно ⊕ или экран со стрелкой).\n2. Нажмите его и подтвердите установку.\n\nЕсли значка нет — откройте меню браузера (⋮) → «Установить Gwash…».",
+    desktop: "1. В адресной строке справа найдите значок установки (обычно ⊕ или экран со стрелкой).\n2. Нажмите его и подтвердите установку.\n\nЕсли значка нет — откройте меню браузера (⋮) → «Установить Aquazone…».",
   };
   document.getElementById("installInstructionsText").textContent = instructions[platform] || instructions.desktop;
   document.getElementById("installInstructionsBlock").style.display = "block";
@@ -1230,7 +1230,7 @@ function downloadReportPdf() {
   @media print{ @page{ margin:16mm; } }
 </style></head>
 <body>
-  <h1>Gwash — отчёт по кассе</h1>
+  <h1>Aquazone — отчёт по кассе</h1>
   <div class="sub">Период: ${escapeHtml(lastReportPeriod)}</div>
   <div class="kpi-row">
     <div class="kpi"><div class="kpi-label">Машин</div><div class="kpi-value">${r.cars_count}</div></div>
