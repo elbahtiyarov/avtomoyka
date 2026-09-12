@@ -938,12 +938,18 @@ async function loadClientsList() {
       listEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Клиентов пока нет — они появятся здесь после первой записи с указанным телефоном.</div>`;
       return;
     }
+    let standardPercent = null;
+    try { standardPercent = (await apiLoyalty("/settings")).points_percent; } catch (err) { /* не критично */ }
+
     const isAdmin = currentUser.role === "admin";
-    listEl.innerHTML = list.map(c => `
+    listEl.innerHTML = list.map(c => {
+      const isVip = c.points_percent_override != null &&
+        (standardPercent == null || Number(c.points_percent_override) > Number(standardPercent));
+      return `
       <div class="client-row">
         <div class="client-row-view">
           <div>
-            <div class="cr-name">${escapeHtml(c.name || "Без имени")}${c.points_percent_override != null ? ` <span class="vip-badge">⭐ VIP ${c.points_percent_override}%</span>` : ""}</div>
+            <div class="cr-name">${escapeHtml(c.name || "Без имени")}${isVip ? ` <span class="vip-badge">⭐ VIP ${c.points_percent_override}%</span>` : ""}</div>
             <div class="cr-phone">+${escapeHtml(c.phone)}</div>
           </div>
           <div class="cr-stats">${c.visit_count} визитов · ${fmt(c.points_balance)}</div>
@@ -953,14 +959,26 @@ async function loadClientsList() {
             <input type="text" id="clName-${c.id}" value="${escapeHtml(c.name || "")}" placeholder="Имя">
             <input type="number" id="clVisits-${c.id}" value="${c.visit_count}" min="0">
             <input type="number" id="clPoints-${c.id}" value="${c.points_balance}" min="0">
-            <input type="number" id="clVipPercent-${c.id}" value="${c.points_percent_override != null ? c.points_percent_override : ""}" placeholder="Обычный %" min="0" step="0.5" title="Личный % баллов — пусто значит обычный, как у всех">
+            <input type="number" id="clVipPercent-${c.id}" value="${c.points_percent_override != null ? c.points_percent_override : ""}" placeholder="Обычный %" min="0" step="0.5" title="Личный % баллов — пусто или как у всех означает обычный тариф, без VIP">
             <button type="button" onclick="saveClient(${c.id})">Сохранить</button>
+            <button type="button" class="client-del-btn" onclick="deleteClient(${c.id})">Удалить</button>
           </div>
         ` : ""}
       </div>
-    `).join("");
+    `;
+    }).join("");
   } catch (err) {
     listEl.innerHTML = `<div style="color:var(--danger);font-size:13px;">${err.message}</div>`;
+  }
+}
+
+async function deleteClient(id) {
+  if (!confirm("Удалить этого клиента из списка? Старые записи в журнале не пострадают.")) return;
+  try {
+    await apiClients(`/${id}`, { method: "DELETE" });
+    await loadClientsList();
+  } catch (err) {
+    alert("Не удалось удалить: " + err.message);
   }
 }
 
@@ -1022,8 +1040,9 @@ function renderClientCard() {
   const effectivePercent = c.points_percent_override != null
     ? c.points_percent_override
     : loyaltyLookup.settings.points_percent;
+  const isVip = c.points_percent_override != null && Number(c.points_percent_override) > Number(loyaltyLookup.settings.points_percent);
   cardEl.innerHTML = `
-    <div class="cc-name">${escapeHtml(c.name || "Без имени")}${c.points_percent_override != null ? ` <span class="vip-badge">⭐ VIP</span>` : ""}</div>
+    <div class="cc-name">${escapeHtml(c.name || "Без имени")}${isVip ? ` <span class="vip-badge">⭐ VIP</span>` : ""}</div>
     <div class="cc-row"><span>Визитов</span><span>${c.visit_count}</span></div>
     <div class="cc-row"><span>Баллов</span><span>${fmt(c.points_balance)}</span></div>
     <div class="cc-row"><span>Начислится баллами</span><span>${effectivePercent}%</span></div>

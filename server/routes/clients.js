@@ -12,11 +12,22 @@ router.get("/", async (req, res, next) => {
     const { q } = req.query;
     const { rows } = q && q.trim()
       ? await pool.query(
-          "SELECT * FROM clients WHERE name ILIKE $1 OR phone ILIKE $1 ORDER BY visit_count DESC, name",
+          "SELECT * FROM clients WHERE active = true AND (name ILIKE $1 OR phone ILIKE $1) ORDER BY visit_count DESC, name",
           [`%${q.trim()}%`]
         )
-      : await pool.query("SELECT * FROM clients ORDER BY visit_count DESC, name");
+      : await pool.query("SELECT * FROM clients WHERE active = true ORDER BY visit_count DESC, name");
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Скрыть клиента из списка (не удаляем — на него могут ссылаться старые записи
+// в журнале, а сам номер остаётся рабочим для бонусов, если понадобится)
+router.delete("/:id", requireAdmin, async (req, res, next) => {
+  try {
+    await pool.query("UPDATE clients SET active = false WHERE id = $1", [req.params.id]);
+    res.status(204).send();
   } catch (err) {
     next(err);
   }
@@ -32,7 +43,7 @@ router.post("/", async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO clients (phone, name)
        VALUES ($1, $2)
-       ON CONFLICT (phone) DO UPDATE SET name = COALESCE(EXCLUDED.name, clients.name)
+       ON CONFLICT (phone) DO UPDATE SET name = COALESCE(EXCLUDED.name, clients.name), active = true
        RETURNING *`,
       [phone, (name && name.trim()) || null]
     );

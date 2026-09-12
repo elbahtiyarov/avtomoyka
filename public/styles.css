@@ -250,6 +250,7 @@ tr:hover .del-btn{opacity:1;}
 .client-edit-row input[type="text"]{flex:1;min-width:100px;}
 .client-edit-row input[type="number"]{width:66px;}
 .client-edit-row button{font-size:11px;padding:6px 8px;border-radius:7px;background:var(--blue-deep);color:#fff;font-weight:600;}
+.client-edit-row .client-del-btn{background:transparent;color:var(--danger);border:1px solid var(--danger);}
 
 .unpaid-toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#B8860B;cursor:pointer;}
 .unpaid-toggle input{width:16px;height:16px;accent-color:#B8860B;}

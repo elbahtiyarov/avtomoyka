@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS clients (
     portal_otp_expires_at  TIMESTAMPTZ,
     portal_otp_attempts    INTEGER NOT NULL DEFAULT 0,
     points_percent_override NUMERIC(5, 2),  -- личный % баллов вместо общего (например, для старых клиентов с картами на 10%)
+    active          BOOLEAN NOT NULL DEFAULT true,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

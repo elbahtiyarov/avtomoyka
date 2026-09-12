@@ -137,7 +137,7 @@ router.post("/", async (req, res, next) => {
       const { rows: clientRows } = await client.query(
         `INSERT INTO clients (phone)
          VALUES ($1)
-         ON CONFLICT (phone) DO UPDATE SET phone = EXCLUDED.phone
+         ON CONFLICT (phone) DO UPDATE SET phone = EXCLUDED.phone, active = true
          RETURNING *`,
         [phone]
       );
