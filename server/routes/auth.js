@@ -65,7 +65,12 @@ router.post("/users", requireAuth, requireAdmin, async (req, res, next) => {
          SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash,
              role = EXCLUDED.role, active = true
        RETURNING id, name, username, role, created_at`,
-      [name.trim(), username.trim().toLowerCase(), hash, role === "admin" ? "admin" : "user"]
+      [
+        name.trim(),
+        username.trim().toLowerCase(),
+        hash,
+        ["admin", "manager"].includes(role) ? role : "user",
+      ]
     );
     res.status(201).json(rows[0]);
   } catch (err) {

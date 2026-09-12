@@ -10,11 +10,13 @@ const expensesRouter = require("./routes/expenses");
 const servicesRouter = require("./routes/services");
 const baysRouter = require("./routes/bays");
 const washersRouter = require("./routes/washers");
+const companiesRouter = require("./routes/companies");
 const clientsRouter = require("./routes/clients");
 const loyaltyRouter = require("./routes/loyalty");
 const payrollRouter = require("./routes/payroll");
 const reportsRouter = require("./routes/reports");
 const clientPortalRouter = require("./routes/clientPortal");
+const { initTelegramBot } = require("./services/telegramBot");
 const errorHandler = require("./middleware/errorHandler");
 const { requireAuth } = require("./middleware/auth");
 
@@ -31,6 +33,7 @@ app.use("/api/expenses", requireAuth, expensesRouter);
 app.use("/api/services", requireAuth, servicesRouter);
 app.use("/api/bays", requireAuth, baysRouter);
 app.use("/api/washers", requireAuth, washersRouter);
+app.use("/api/companies", requireAuth, companiesRouter);
 app.use("/api/clients", requireAuth, clientsRouter);
 app.use("/api/loyalty", requireAuth, loyaltyRouter);
 app.use("/api/payroll", requireAuth, payrollRouter);
@@ -42,6 +45,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3002;
 const server = app.listen(PORT, () => {
   console.log(`Автомойка запущена: http://localhost:${PORT}`);
+  initTelegramBot();
 });
 
 // --- WebSocket: живые обновления, если несколько администраторов работают одновременно ---

@@ -29,6 +29,7 @@ router.get("/shift", async (req, res, next) => {
          COALESCE(SUM(price), 0)         AS total_revenue,
          COALESCE(SUM(amount_cash), 0)   AS total_cash,
          COALESCE(SUM(amount_qr), 0)     AS total_qr,
+         COALESCE(SUM(amount_invoice), 0) AS total_invoice,
          COALESCE(SUM(points_redeemed), 0) AS total_bonus_redeemed
        FROM records ${where}`,
       dateParams
@@ -77,6 +78,7 @@ router.get("/shift", async (req, res, next) => {
       total_revenue: Number(t.total_revenue),
       total_cash: Number(t.total_cash),
       total_qr: Number(t.total_qr),
+      total_invoice: Number(t.total_invoice),
       total_bonus_redeemed: Number(t.total_bonus_redeemed),
       admin_percent: Number(settings.admin_percent),
       admin_cut: adminCut,

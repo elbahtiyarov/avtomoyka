@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     name          TEXT NOT NULL,
     username      TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+    role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'manager', 'user')),
     active        BOOLEAN NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -32,6 +32,37 @@ CREATE TABLE IF NOT EXISTS services (
 );
 
 -- Мойщики (кто принял машину) — настраиваемый список, можно добавлять новых прямо из формы
+-- Связь телефона с чатом в Telegram — клиент один раз нажимает "Поделиться номером"
+-- в боте, дальше код для входа/списания баллов можно слать туда вместо SMS (бесплатно)
+CREATE TABLE IF NOT EXISTS telegram_links (
+    id          SERIAL PRIMARY KEY,
+    phone       TEXT NOT NULL UNIQUE,
+    chat_id     BIGINT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Компании, которые платят раз в месяц через бухгалтерию (безналичный расчёт по
+-- счёту) — отдельный, независимый от журнала записей учёт задолженности
+CREATE TABLE IF NOT EXISTS companies (
+    id          SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    balance     NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- текущий долг компании
+    active      BOOLEAN NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- История начислений и оплат по каждой компании — для истории/сверки
+CREATE TABLE IF NOT EXISTS company_ledger (
+    id           BIGSERIAL PRIMARY KEY,
+    company_id   INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    kind         TEXT NOT NULL CHECK (kind IN ('charge', 'payment')),
+    amount       NUMERIC(12, 2) NOT NULL,
+    note         TEXT,
+    staff_id     INTEGER REFERENCES users(id),
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_company_ledger_company ON company_ledger (company_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS washers (
     id          SERIAL PRIMARY KEY,
     name        TEXT NOT NULL UNIQUE,
@@ -94,6 +125,8 @@ CREATE TABLE IF NOT EXISTS records (
     points_redeemed          NUMERIC(12, 2) NOT NULL DEFAULT 0,
     amount_cash              NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- сколько из price оплачено наличными
     amount_qr                NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- сколько из price оплачено через QR
+    amount_invoice           NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- сколько оплачено безналично по счёту (компании)
+    company_id               INTEGER REFERENCES companies(id),  -- какая компания платит по счёту (если способ оплаты — "по счёту")
     signature                TEXT,                     -- подпись клиента, PNG в формате base64 data URL
     created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -3,11 +3,8 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const pool = require("../db");
 const { requireAdmin } = require("../middleware/auth");
-const { sendSms } = require("../services/sms");
-
-function normalizePhone(raw) {
-  return (raw || "").replace(/\D/g, "");
-}
+const { sendCode } = require("../services/notify");
+const { normalizePhone } = require("../utils/phone");
 
 // Список клиентов бонусной программы (поиск по имени/телефону: /clients?q=...)
 router.get("/", async (req, res, next) => {
@@ -67,15 +64,15 @@ router.post("/request-redeem-code", async (req, res, next) => {
       [hash, expiresAt, c.id]
     );
 
-    const smsResult = await sendSms(
+    const result = await sendCode(
       phone,
       `Автомойка: код для списания баллов — ${code}. Никому не сообщайте его, кроме сотрудника мойки.`
     );
 
-    const response = { sent: true };
+    const response = { sent: true, channel: result.channel };
     // Код виден в ответе, только если реальный SMS-шлюз не настроен (режим разработки) —
     // это чтобы можно было проверять списание баллов локально без платного SMS-провайдера.
-    if (smsResult.provider === "console") response.dev_code = code;
+    if (result.channel === "sms" && result.provider === "console") response.dev_code = code;
     res.json(response);
   } catch (err) {
     next(err);
@@ -104,4 +101,3 @@ router.get("/lookup", async (req, res, next) => {
 });
 
 module.exports = router;
-module.exports.normalizePhone = normalizePhone;

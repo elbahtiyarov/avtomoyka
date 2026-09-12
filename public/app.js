@@ -1,4 +1,4 @@
-// Автомойка — фронтенд: вход по логину/паролю (JWT), журнал записей, каталог услуг
+// Gwash — фронтенд: вход по логину/паролю (JWT), журнал записей, каталог услуг
 
 // Принудительно включаем мобильный вид на реальных Android/iPhone — даже если в
 // браузере включён режим "Версия для компьютера" и он выдаёт себя за широкий экран.
@@ -62,7 +62,7 @@ async function installFor(platform) {
   const instructions = {
     ios: "1. Нажмите кнопку «Поделиться» (квадрат со стрелкой вверх) внизу экрана Safari.\n2. Выберите «На экран «Домой»».\n3. Нажмите «Добавить» в правом верхнем углу.",
     android: "1. Откройте меню браузера (⋮) в правом верхнем углу Chrome.\n2. Выберите «Установить приложение» или «Добавить на главный экран».\n3. Подтвердите установку.",
-    desktop: "1. В адресной строке справа найдите значок установки (обычно ⊕ или экран со стрелкой).\n2. Нажмите его и подтвердите установку.\n\nЕсли значка нет — откройте меню браузера (⋮) → «Установить Автомойка…».",
+    desktop: "1. В адресной строке справа найдите значок установки (обычно ⊕ или экран со стрелкой).\n2. Нажмите его и подтвердите установку.\n\nЕсли значка нет — откройте меню браузера (⋮) → «Установить Gwash…».",
   };
   document.getElementById("installInstructionsText").textContent = instructions[platform] || instructions.desktop;
   document.getElementById("installInstructionsBlock").style.display = "block";
@@ -107,10 +107,21 @@ let records = [];
 let services = [];
 let bays = [];
 let washers = [];
+let companiesList = [];
 let ws = null;
 let hasSignature = false;
 
 const fmt = n => new Intl.NumberFormat("ru-RU").format(Math.round(n || 0)) + " ₸";
+function roleLabel(role) {
+  if (role === "admin") return "Администратор";
+  if (role === "manager") return "Менеджер";
+  return "Сотрудник";
+}
+function canModifyRecord(r) {
+  if (currentUser.role === "admin") return true;
+  if (currentUser.role === "manager") return r.staff_role !== "admin";
+  return false;
+}
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 async function api(path, base, options = {}) {
@@ -134,6 +145,7 @@ const apiServices = (path, opts) => api(path, "/api/services", opts);
 const apiBays = (path, opts) => api(path, "/api/bays", opts);
 const apiWashers = (path, opts) => api(path, "/api/washers", opts);
 const apiExpenses = (path, opts) => api(path, "/api/expenses", opts);
+const apiCompanies = (path, opts) => api(path, "/api/companies", opts);
 const apiClients = (path, opts) => api(path, "/api/clients", opts);
 const apiLoyalty = (path, opts) => api(path, "/api/loyalty", opts);
 const apiPayroll = (path, opts) => api(path, "/api/payroll", opts);
@@ -193,7 +205,7 @@ async function showApp() {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("appLayout").style.display = "flex";
   document.getElementById("currentUserName").textContent = currentUser.name;
-  document.getElementById("currentUserRole").textContent = currentUser.role === "admin" ? "Администратор" : "Сотрудник";
+  document.getElementById("currentUserRole").textContent = roleLabel(currentUser.role);
   document.getElementById("usersNavItem").style.display = currentUser.role === "admin" ? "flex" : "none";
   document.getElementById("loyaltyNavItem").style.display = currentUser.role === "admin" ? "flex" : "none";
   document.getElementById("dateLabel").textContent =
@@ -207,10 +219,12 @@ async function showApp() {
   document.getElementById("payrollForm").addEventListener("submit", submitPayrollSettings);
   document.getElementById("newWasherForm").addEventListener("submit", submitNewWasher);
   document.getElementById("newExpenseForm").addEventListener("submit", submitNewExpense);
+  document.getElementById("newCompanyForm").addEventListener("submit", submitNewCompany);
 
   await loadServices();
   await loadBays();
   await loadWashers();
+  await loadCompaniesForForm();
   await loadRecords();
   await loadSummary();
   connectWebSocket();
@@ -446,6 +460,42 @@ async function submitNewWasher(e) {
   }
 }
 
+// --- Компания-плательщик в форме записи (для способа оплаты "Безнал по счёту") ---
+async function loadCompaniesForForm() {
+  try {
+    companiesList = await apiCompanies("");
+    renderCompanyOptions();
+  } catch (err) {
+    companiesList = [];
+  }
+}
+
+function renderCompanyOptions() {
+  const el = document.getElementById("fCompany");
+  if (!el) return;
+  const current = el.value;
+  el.innerHTML = companiesList.length === 0
+    ? `<option value="">Нет компаний — добавьте ниже</option>`
+    : companiesList.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+  if (current && companiesList.some(c => String(c.id) === current)) el.value = current;
+}
+
+async function addCompanyInline() {
+  const name = document.getElementById("newCompanyNameInline").value.trim();
+  if (!name) return alert("Укажите название компании");
+  try {
+    const c = await apiCompanies("", { method: "POST", body: JSON.stringify({ name }) });
+    companiesList = companiesList.filter(x => x.id !== c.id);
+    companiesList.push(c);
+    companiesList.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    renderCompanyOptions();
+    document.getElementById("fCompany").value = c.id;
+    document.getElementById("newCompanyNameInline").value = "";
+  } catch (err) {
+    alert("Не удалось добавить компанию: " + err.message);
+  }
+}
+
 // --- Расходы (мастер, ремонт, закупки и т.п.) — списываются из наличной кассы ---
 async function openExpensesPanel() {
   document.getElementById("expensesOverlay").style.display = "flex";
@@ -508,6 +558,76 @@ async function deleteExpense(id) {
   }
 }
 
+// --- Компании (безналичный расчёт по счёту, оплата раз в месяц) ---
+async function openCompaniesPanel() {
+  document.getElementById("companiesOverlay").style.display = "flex";
+  await loadCompaniesPanel();
+}
+function closeCompaniesPanel() { document.getElementById("companiesOverlay").style.display = "none"; }
+
+async function loadCompaniesPanel() {
+  const el = document.getElementById("companiesList");
+  el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Загрузка…</div>`;
+  try {
+    const list = await apiCompanies("");
+    if (list.length === 0) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Пока нет компаний</div>`;
+      return;
+    }
+    el.innerHTML = list.map(c => `
+      <div class="company-row">
+        <div class="company-row-view">
+          <span class="cp-name">${escapeHtml(c.name)}</span>
+          <span class="cp-balance">${fmt(c.balance)}</span>
+        </div>
+        <div class="company-actions">
+          <input type="number" id="compCharge-${c.id}" min="0" placeholder="Сумма">
+          <button type="button" class="company-charge-btn" onclick="chargeCompany(${c.id})">+ Начислить</button>
+          <button type="button" class="company-pay-btn" onclick="payCompany(${c.id})">✓ Оплачено</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger);font-size:13px;">${err.message}</div>`;
+  }
+}
+
+async function submitNewCompany(e) {
+  e.preventDefault();
+  const name = document.getElementById("compNewName").value.trim();
+  if (!name) return alert("Укажите название компании");
+  try {
+    await apiCompanies("", { method: "POST", body: JSON.stringify({ name }) });
+    document.getElementById("newCompanyForm").reset();
+    await loadCompaniesPanel();
+    await loadCompaniesForForm();
+  } catch (err) {
+    alert("Не удалось добавить компанию: " + err.message);
+  }
+}
+
+async function chargeCompany(id) {
+  const input = document.getElementById(`compCharge-${id}`);
+  const amount = Number(input.value);
+  if (!amount || amount <= 0) return alert("Укажите сумму начисления");
+  try {
+    await apiCompanies(`/${id}/charge`, { method: "POST", body: JSON.stringify({ amount }) });
+    await loadCompaniesPanel();
+  } catch (err) {
+    alert("Не удалось начислить: " + err.message);
+  }
+}
+
+async function payCompany(id) {
+  if (!confirm("Отметить долг этой компании как полностью оплаченный?")) return;
+  try {
+    await apiCompanies(`/${id}/pay`, { method: "POST" });
+    await loadCompaniesPanel();
+  } catch (err) {
+    alert("Не удалось отметить оплату: " + err.message);
+  }
+}
+
 async function loadRecords(silent) {
   if (!silent) {
     document.getElementById("loadingState").style.display = "block";
@@ -567,6 +687,8 @@ function connectWebSocket() {
 function paymentIcon(r) {
   const cash = Number(r.amount_cash) || 0;
   const qr = Number(r.amount_qr) || 0;
+  const invoice = Number(r.amount_invoice) || 0;
+  if (invoice > 0) return "🧾";
   if (cash > 0 && qr > 0) return "💵📱";
   if (qr > 0) return "📱";
   if (cash > 0) return "💵";
@@ -576,6 +698,8 @@ function paymentIcon(r) {
 function paymentLabel(r) {
   const cash = Number(r.amount_cash) || 0;
   const qr = Number(r.amount_qr) || 0;
+  const invoice = Number(r.amount_invoice) || 0;
+  if (invoice > 0) return `🧾 По счёту${r.company_name ? " (" + escapeHtml(r.company_name) + ")" : ""}`;
   if (cash > 0 && qr > 0) return "💳 Смешанно";
   if (qr > 0) return "📱 QR";
   if (cash > 0) return "💵 Наличные";
@@ -611,8 +735,8 @@ function render() {
       <td style="color:var(--muted)">${escapeHtml(r.received_by || r.staff_name || "—")}</td>
       <td>${sigCell}</td>
       <td>
-        ${currentUser.role === "admin" ? `<button class="del-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
-        ${currentUser.role === "admin" ? `<button class="del-btn" onclick="removeRecord(${r.id})">🗑</button>` : ""}
+        ${canModifyRecord(r) ? `<button class="del-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
+        ${canModifyRecord(r) ? `<button class="del-btn" onclick="removeRecord(${r.id})">🗑</button>` : ""}
       </td>
     </tr>`;
   }).join("");
@@ -634,8 +758,8 @@ function render() {
       <div class="rec-card-footer">
         <span class="rec-staff">👤 ${escapeHtml(r.received_by || r.staff_name || "—")}</span>
         <div class="rec-actions">
-          ${currentUser.role === "admin" ? `<button class="rec-action-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
-          ${currentUser.role === "admin" ? `<button class="rec-action-btn" onclick="removeRecord(${r.id})">🗑</button>` : ""}
+          ${canModifyRecord(r) ? `<button class="rec-action-btn" onclick="openForm(${r.id})">✏️</button>` : ""}
+          ${canModifyRecord(r) ? `<button class="rec-action-btn" onclick="removeRecord(${r.id})">🗑</button>` : ""}
         </div>
       </div>
     </div>`;
@@ -684,17 +808,23 @@ function openForm(recordId) {
   document.getElementById("loyaltySection").style.display = record ? "none" : "block";
 
   if (record) {
-    const method = Number(record.amount_qr) > 0 && Number(record.amount_cash) > 0
-      ? "mixed"
-      : Number(record.amount_qr) > 0 ? "qr" : "cash";
+    const method = Number(record.amount_invoice) > 0
+      ? "invoice"
+      : Number(record.amount_qr) > 0 && Number(record.amount_cash) > 0
+        ? "mixed"
+        : Number(record.amount_qr) > 0 ? "qr" : "cash";
     document.querySelector(`input[name="paymentMethod"][value="${method}"]`).checked = true;
     document.getElementById("fAmountCash").value = record.amount_cash || "";
     document.getElementById("fAmountQr").value = record.amount_qr || "";
+    renderCompanyOptions();
+    if (record.company_id) document.getElementById("fCompany").value = record.company_id;
   } else {
     document.querySelector('input[name="paymentMethod"][value="cash"]').checked = true;
     document.getElementById("fAmountCash").value = "";
     document.getElementById("fAmountQr").value = "";
+    renderCompanyOptions();
   }
+  document.getElementById("newCompanyNameInline").value = "";
   onPaymentMethodChange();
 
   clearSignature();
@@ -888,9 +1018,13 @@ async function requestRedeemCode() {
   statusEl.textContent = "Отправляем код…";
   try {
     const res = await apiClients("/request-redeem-code", { method: "POST", body: JSON.stringify({ phone }) });
-    statusEl.textContent = res.dev_code
-      ? `Тестовый режим (SMS-шлюз не настроен) — код: ${res.dev_code}`
-      : "Код отправлен по SMS, действует 5 минут.";
+    if (res.dev_code) {
+      statusEl.textContent = `Тестовый режим (SMS-шлюз не настроен) — код: ${res.dev_code}`;
+    } else if (res.channel === "telegram") {
+      statusEl.textContent = "Код отправлен в Telegram, действует 5 минут.";
+    } else {
+      statusEl.textContent = "Код отправлен по SMS, действует 5 минут.";
+    }
   } catch (err) {
     statusEl.textContent = "Не удалось отправить код: " + err.message;
   }
@@ -900,15 +1034,18 @@ async function requestRedeemCode() {
 function onPaymentMethodChange() {
   const method = document.querySelector('input[name="paymentMethod"]:checked').value;
   document.getElementById("mixedPaymentRow").style.display = method === "mixed" ? "flex" : "none";
+  document.getElementById("invoiceCompanyRow").style.display = method === "invoice" ? "block" : "none";
 }
 
 function computePaymentAmounts(finalAmount) {
   const method = document.querySelector('input[name="paymentMethod"]:checked').value;
-  if (method === "cash") return { amount_cash: finalAmount, amount_qr: 0 };
-  if (method === "qr") return { amount_cash: 0, amount_qr: finalAmount };
+  if (method === "cash") return { amount_cash: finalAmount, amount_qr: 0, amount_invoice: 0 };
+  if (method === "qr") return { amount_cash: 0, amount_qr: finalAmount, amount_invoice: 0 };
+  if (method === "invoice") return { amount_cash: 0, amount_qr: 0, amount_invoice: finalAmount };
   return {
     amount_cash: Number(document.getElementById("fAmountCash").value) || 0,
     amount_qr: Number(document.getElementById("fAmountQr").value) || 0,
+    amount_invoice: 0,
   };
 }
 
@@ -972,6 +1109,7 @@ async function loadReport() {
         <div class="report-kpi"><div class="rk-label">Общая касса</div><div class="rk-value">${fmt(r.total_revenue)}</div></div>
         <div class="report-kpi"><div class="rk-label">Наличными</div><div class="rk-value">${fmt(r.total_cash)}</div></div>
         <div class="report-kpi"><div class="rk-label">QR</div><div class="rk-value">${fmt(r.total_qr)}</div></div>
+        <div class="report-kpi"><div class="rk-label">Безнал по счёту</div><div class="rk-value">${fmt(r.total_invoice)}</div></div>
         <div class="report-kpi"><div class="rk-label">Бонусами оплачено</div><div class="rk-value">${fmt(r.total_bonus_redeemed)}</div></div>
         <div class="report-kpi"><div class="rk-label">Процент админа (${r.admin_percent}%)</div><div class="rk-value">${fmt(r.admin_cut)}</div></div>
         <div class="report-kpi"><div class="rk-label">Расходы</div><div class="rk-value" style="color:var(--danger);">−${fmt(r.total_expenses)}</div></div>
@@ -1036,13 +1174,14 @@ function downloadReportPdf() {
   @media print{ @page{ margin:16mm; } }
 </style></head>
 <body>
-  <h1>Автомойка — отчёт по кассе</h1>
+  <h1>Gwash — отчёт по кассе</h1>
   <div class="sub">Период: ${escapeHtml(lastReportPeriod)}</div>
   <div class="kpi-row">
     <div class="kpi"><div class="kpi-label">Машин</div><div class="kpi-value">${r.cars_count}</div></div>
     <div class="kpi"><div class="kpi-label">Общая касса</div><div class="kpi-value">${fmt(r.total_revenue)}</div></div>
     <div class="kpi"><div class="kpi-label">Наличными</div><div class="kpi-value">${fmt(r.total_cash)}</div></div>
     <div class="kpi"><div class="kpi-label">QR</div><div class="kpi-value">${fmt(r.total_qr)}</div></div>
+    <div class="kpi"><div class="kpi-label">Безнал по счёту</div><div class="kpi-value">${fmt(r.total_invoice)}</div></div>
     <div class="kpi"><div class="kpi-label">Бонусами оплачено</div><div class="kpi-value">${fmt(r.total_bonus_redeemed)}</div></div>
     <div class="kpi"><div class="kpi-label">Процент админа (${r.admin_percent}%)</div><div class="kpi-value">${fmt(r.admin_cut)}</div></div>
     <div class="kpi"><div class="kpi-label">Расходы</div><div class="kpi-value">−${fmt(r.total_expenses)}</div></div>
@@ -1225,6 +1364,12 @@ async function submitForm(e) {
   const estimatedFinal = Math.max(0, price - (payload.redeem_points || 0));
   Object.assign(payload, computePaymentAmounts(estimatedFinal));
 
+  if (document.querySelector('input[name="paymentMethod"]:checked').value === "invoice") {
+    const companyId = document.getElementById("fCompany").value;
+    if (!companyId) return alert("Выберите компанию для оплаты по счёту");
+    payload.company_id = Number(companyId);
+  }
+
   try {
     if (editingRecordId) {
       await apiRecords(`/${editingRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
@@ -1253,7 +1398,7 @@ async function loadUsers() {
       <div class="user-row">
         <div>
           <div>${escapeHtml(u.name)} <span style="color:var(--muted);">(${escapeHtml(u.username)})</span></div>
-          <div class="u-role">${u.role === "admin" ? "Администратор" : "Сотрудник"}</div>
+          <div class="u-role">${roleLabel(u.role)}</div>
         </div>
         ${u.id === currentUser.id ? "" : `<button class="u-del" onclick="hideUser(${u.id})">Скрыть</button>`}
       </div>

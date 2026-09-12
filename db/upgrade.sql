@@ -9,6 +9,9 @@
 
 -- users: поле "active" появилось после первой версии
 ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;
+-- users: добавилась роль "manager" — расширяем допустимые значения
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'manager', 'user'));
 
 -- records: набор полей рос по мере добавления функций (боксы, мойщики,
 -- бонусы, способ оплаты)
@@ -19,6 +22,8 @@ ALTER TABLE records ADD COLUMN IF NOT EXISTS points_earned NUMERIC(12, 2) NOT NU
 ALTER TABLE records ADD COLUMN IF NOT EXISTS points_redeemed NUMERIC(12, 2) NOT NULL DEFAULT 0;
 ALTER TABLE records ADD COLUMN IF NOT EXISTS amount_cash NUMERIC(12, 2) NOT NULL DEFAULT 0;
 ALTER TABLE records ADD COLUMN IF NOT EXISTS amount_qr NUMERIC(12, 2) NOT NULL DEFAULT 0;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS amount_invoice NUMERIC(12, 2) NOT NULL DEFAULT 0;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS company_id INTEGER REFERENCES companies(id);
 -- поле было в одной из промежуточных версий и больше не используется — просто убираем,
 -- на остальные данные это не влияет
 ALTER TABLE records DROP COLUMN IF EXISTS visit_discount_applied;

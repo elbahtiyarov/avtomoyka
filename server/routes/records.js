@@ -3,7 +3,32 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const pool = require("../db");
 const { requireAdmin } = require("../middleware/auth");
-const { normalizePhone } = require("./clients");
+
+// Кто может редактировать/удалять запись:
+//   admin   — любую
+//   manager — любую, КРОМЕ тех, что создал администратор (только свои и записи
+//             обычных сотрудников)
+//   user    — вообще не может (проверяется отдельно на фронтенде и здесь же)
+async function canModifyRecord(req, res, next) {
+  if (req.user.role === "admin") return next();
+  if (req.user.role !== "manager") {
+    return res.status(403).json({ error: "Недостаточно прав для этого действия" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT u.role AS staff_role FROM records r LEFT JOIN users u ON u.id = r.staff_id WHERE r.id = $1`,
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Запись не найдена" });
+    if (rows[0].staff_role === "admin") {
+      return res.status(403).json({ error: "Нельзя изменять записи администратора" });
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+const { normalizePhone } = require("../utils/phone");
 
 // Список записей. Фильтры (все необязательные, можно комбинировать):
 //   date        — конкретная дата
@@ -13,7 +38,8 @@ router.get("/", async (req, res, next) => {
   try {
     const { date, date_from, date_to, q } = req.query;
     const baseQuery = `
-      SELECT r.*, u.name AS staff_name, b.name AS bay_name, c.name AS client_name, c.phone AS client_phone,
+      SELECT r.*, u.name AS staff_name, u.role AS staff_role, b.name AS bay_name, c.name AS client_name, c.phone AS client_phone,
+        co.name AS company_name,
         COALESCE((
           SELECT json_agg(json_build_object('id', rs.service_id, 'name', rs.service_name, 'price', rs.service_price) ORDER BY rs.id)
           FROM record_services rs WHERE rs.record_id = r.id
@@ -22,6 +48,7 @@ router.get("/", async (req, res, next) => {
       LEFT JOIN users u ON u.id = r.staff_id
       LEFT JOIN bays b ON b.id = r.bay_id
       LEFT JOIN clients c ON c.id = r.client_id
+      LEFT JOIN companies co ON co.id = r.company_id
     `;
 
     const conditions = [];
@@ -82,7 +109,7 @@ router.post("/", async (req, res, next) => {
   try {
     const {
       service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by,
-      client_phone, client_name, redeem_points, otp_code, amount_cash, amount_qr,
+      client_phone, client_name, redeem_points, otp_code, amount_cash, amount_qr, amount_invoice, company_id,
     } = req.body;
 
     if (!service_date || !car_brand || !car_number || price == null || !bay_id || !Array.isArray(service_ids) || service_ids.length === 0) {
@@ -154,22 +181,28 @@ router.post("/", async (req, res, next) => {
       );
     }
 
-    // Наличные + QR должны в сумме сходиться с итоговой суммой к оплате (после
-    // возможного списания баллов) — сервер это проверяет, а не полагается на фронтенд.
+    // Наличные + QR + безнал по счёту должны в сумме сходиться с итоговой суммой к
+    // оплате (после возможного списания баллов) — сервер это проверяет, а не
+    // полагается на фронтенд.
     const cash = Math.max(0, Number(amount_cash) || 0);
     const qr = Math.max(0, Number(amount_qr) || 0);
-    if (Math.abs(cash + qr - finalPrice) > 1) {
+    const invoice = Math.max(0, Number(amount_invoice) || 0);
+    if (Math.abs(cash + qr + invoice - finalPrice) > 1) {
       await client.query("ROLLBACK");
       return res.status(400).json({
-        error: `Сумма наличных и QR (${cash + qr}) не совпадает с итоговой суммой к оплате (${finalPrice})`,
+        error: `Сумма оплаты (${cash + qr + invoice}) не совпадает с итоговой суммой к оплате (${finalPrice})`,
       });
+    }
+    if (invoice > 0 && !company_id) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Выберите компанию для оплаты по счёту" });
     }
 
     const { rows: recRows } = await client.query(
       `INSERT INTO records
          (service_date, car_brand, car_number, price, staff_id, received_by, bay_id, signature,
-          client_id, points_earned, points_redeemed, amount_cash, amount_qr)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          client_id, points_earned, points_redeemed, amount_cash, amount_qr, amount_invoice, company_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
       [
         service_date,
@@ -185,9 +218,21 @@ router.post("/", async (req, res, next) => {
         actualRedeemed,
         cash,
         qr,
+        invoice,
+        invoice > 0 ? company_id : null,
       ]
     );
     const record = recRows[0];
+
+    // Безнал по счёту — сразу начисляем компании этот долг, отдельно вручную
+    // "+ Начислить" нажимать не нужно
+    if (invoice > 0) {
+      await client.query("UPDATE companies SET balance = balance + $1 WHERE id = $2", [invoice, company_id]);
+      await client.query(
+        `INSERT INTO company_ledger (company_id, kind, amount, note, staff_id) VALUES ($1,'charge',$2,$3,$4)`,
+        [company_id, invoice, `Мойка №${record.id} (${car_brand.trim()}, ${car_number.trim()})`, req.user.id]
+      );
+    }
 
     const { rows: services } = await client.query(
       "SELECT id, name, price FROM services WHERE id = ANY($1::int[])",
@@ -213,10 +258,10 @@ router.post("/", async (req, res, next) => {
 });
 
 // Изменить запись целиком (только администратор)
-router.put("/:id", requireAdmin, async (req, res, next) => {
+router.put("/:id", canModifyRecord, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by, amount_cash, amount_qr } = req.body;
+    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by, amount_cash, amount_qr, amount_invoice, company_id } = req.body;
 
     if (!service_date || !car_brand || !car_number || price == null || !bay_id || !received_by ||
         !Array.isArray(service_ids) || service_ids.length === 0) {
@@ -227,32 +272,65 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
 
     const cash = Math.max(0, Number(amount_cash) || 0);
     const qr = Math.max(0, Number(amount_qr) || 0);
-    if (Math.abs(cash + qr - Number(price)) > 1) {
+    const invoice = Math.max(0, Number(amount_invoice) || 0);
+    if (Math.abs(cash + qr + invoice - Number(price)) > 1) {
       return res.status(400).json({
-        error: `Сумма наличных и QR (${cash + qr}) не совпадает с ценой (${price})`,
+        error: `Сумма оплаты (${cash + qr + invoice}) не совпадает с ценой (${price})`,
       });
+    }
+    if (invoice > 0 && !company_id) {
+      return res.status(400).json({ error: "Выберите компанию для оплаты по счёту" });
     }
 
     await client.query("BEGIN");
+
+    // Запоминаем старый способ оплаты по счёту — если он менялся, долг компании
+    // нужно пересчитать (снять старое начисление, применить новое)
+    const { rows: beforeRows } = await client.query(
+      "SELECT company_id, amount_invoice FROM records WHERE id = $1",
+      [req.params.id]
+    );
+    if (beforeRows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Запись не найдена" });
+    }
+    const before = beforeRows[0];
 
     const hasSignature = Object.prototype.hasOwnProperty.call(req.body, "signature");
     const { rows: recRows } = await client.query(
       hasSignature
         ? `UPDATE records
-             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, signature=$7, amount_cash=$8, amount_qr=$9
-           WHERE id=$10 RETURNING *`
+             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, signature=$7, amount_cash=$8, amount_qr=$9, amount_invoice=$10, company_id=$11
+           WHERE id=$12 RETURNING *`
         : `UPDATE records
-             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, amount_cash=$7, amount_qr=$8
-           WHERE id=$9 RETURNING *`,
+             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, amount_cash=$7, amount_qr=$8, amount_invoice=$9, company_id=$10
+           WHERE id=$11 RETURNING *`,
       hasSignature
-        ? [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), signature || null, cash, qr, req.params.id]
-        : [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), cash, qr, req.params.id]
+        ? [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), signature || null, cash, qr, invoice, invoice > 0 ? company_id : null, req.params.id]
+        : [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), cash, qr, invoice, invoice > 0 ? company_id : null, req.params.id]
     );
     if (recRows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Запись не найдена" });
     }
     const record = recRows[0];
+
+    // Снимаем старое начисление (если было) и применяем новое (если есть) —
+    // так долг компании не расходится с реальными записями после редактирования
+    if (before.company_id && Number(before.amount_invoice) > 0) {
+      await client.query("UPDATE companies SET balance = balance - $1 WHERE id = $2", [before.amount_invoice, before.company_id]);
+      await client.query(
+        `INSERT INTO company_ledger (company_id, kind, amount, note, staff_id) VALUES ($1,'payment',$2,$3,$4)`,
+        [before.company_id, before.amount_invoice, `Корректировка при редактировании записи №${record.id}`, req.user.id]
+      );
+    }
+    if (invoice > 0) {
+      await client.query("UPDATE companies SET balance = balance + $1 WHERE id = $2", [invoice, company_id]);
+      await client.query(
+        `INSERT INTO company_ledger (company_id, kind, amount, note, staff_id) VALUES ($1,'charge',$2,$3,$4)`,
+        [company_id, invoice, `Мойка №${record.id} (после редактирования)`, req.user.id]
+      );
+    }
 
     await client.query("DELETE FROM record_services WHERE record_id = $1", [record.id]);
     const { rows: services } = await client.query(
@@ -279,7 +357,7 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
 });
 
 // Удаление записи
-router.delete("/:id", requireAdmin, async (req, res, next) => {
+router.delete("/:id", canModifyRecord, async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -294,6 +372,14 @@ router.delete("/:id", requireAdmin, async (req, res, next) => {
                points_balance = points_balance + $1 - $2
          WHERE id = $3`,
         [record.points_redeemed, record.points_earned, record.client_id]
+      );
+    }
+    if (record && record.company_id && Number(record.amount_invoice) > 0) {
+      // снимаем долг с компании — удалённая запись больше не должна числиться за ней
+      await client.query("UPDATE companies SET balance = balance - $1 WHERE id = $2", [record.amount_invoice, record.company_id]);
+      await client.query(
+        `INSERT INTO company_ledger (company_id, kind, amount, note, staff_id) VALUES ($1,'payment',$2,$3,$4)`,
+        [record.company_id, record.amount_invoice, `Удаление записи №${record.id}`, req.user.id]
       );
     }
     await client.query("DELETE FROM records WHERE id = $1", [req.params.id]);

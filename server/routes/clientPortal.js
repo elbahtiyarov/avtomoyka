@@ -4,8 +4,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../db");
 const { requireClientAuth, SECRET } = require("../middleware/auth");
-const { sendSms } = require("../services/sms");
-const { normalizePhone } = require("./clients");
+const { sendCode } = require("../services/notify");
+const { normalizePhone } = require("../utils/phone");
 
 // Клиент запрашивает код для входа в личный кабинет — приходит по SMS.
 // Работает только для номеров, которые уже есть в базе (то есть клиент хотя бы раз
@@ -30,13 +30,13 @@ router.post("/request-code", async (req, res, next) => {
       [hash, expiresAt, client.id]
     );
 
-    const smsResult = await sendSms(
+    const result = await sendCode(
       phone,
       `Автомойка: код для входа в личный кабинет — ${code}. Никому его не сообщайте.`
     );
 
-    const response = { sent: true };
-    if (smsResult.provider === "console") response.dev_code = code; // видно только без реального SMS-шлюза
+    const response = { sent: true, channel: result.channel };
+    if (result.channel === "sms" && result.provider === "console") response.dev_code = code; // видно только без реального SMS-шлюза
     res.json(response);
   } catch (err) {
     next(err);

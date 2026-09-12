@@ -81,6 +81,9 @@ async function submitPhone(e) {
     if (res.dev_code) {
       hint.textContent = `Тестовый режим (SMS-шлюз не настроен) — код: ${res.dev_code}`;
       hint.style.display = "block";
+    } else if (res.channel === "telegram") {
+      hint.textContent = "Код отправлен в Telegram.";
+      hint.style.display = "block";
     } else {
       hint.style.display = "none";
     }
