@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-const { requireAdmin } = require("../middleware/auth");
+const { requireAdminOrManager } = require("../middleware/auth");
 
 router.get("/settings", async (req, res, next) => {
   try {
@@ -12,7 +12,7 @@ router.get("/settings", async (req, res, next) => {
   }
 });
 
-router.put("/settings", requireAdmin, async (req, res, next) => {
+router.put("/settings", requireAdminOrManager, async (req, res, next) => {
   try {
     const { points_percent } = req.body;
     if (points_percent == null || points_percent < 0) {

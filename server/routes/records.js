@@ -147,6 +147,10 @@ router.post("/", async (req, res, next) => {
       let otpConsumed = false;
 
       if (requestedRedeem > 0) {
+        if (req.user.role !== "admin") {
+          await client.query("ROLLBACK");
+          return res.status(403).json({ error: "Списание баллов доступно только администратору" });
+        }
         if (!loyaltyClient.otp_code_hash || !loyaltyClient.otp_expires_at) {
           await client.query("ROLLBACK");
           return res.status(400).json({ error: "Сначала запросите SMS-код для списания баллов" });

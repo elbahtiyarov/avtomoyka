@@ -80,7 +80,9 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
 
 // Запросить SMS-код для списания баллов. Код на 5 минут, одноразовый, с ограничением
 // на число попыток ввода — так подтверждается, что телефон сейчас у клиента в руках.
-router.post("/request-redeem-code", async (req, res, next) => {
+// Списывать баллы может только администратор — менеджер и сотрудник видят баланс
+// и могут пополнять его новыми визитами, но не имеют права его тратить.
+router.post("/request-redeem-code", requireAdmin, async (req, res, next) => {
   try {
     const phone = normalizePhone(req.body.phone);
     if (!phone) return res.status(400).json({ error: "Укажите телефон" });

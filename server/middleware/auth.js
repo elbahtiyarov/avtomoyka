@@ -26,6 +26,16 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Для разделов, куда пустили и менеджера (Пользователи, Бонусы) — но не обычного
+// сотрудника. Конкретные ограничения "менеджер не может трогать админов" проверяются
+// отдельно внутри самих роутов, там, где это важно.
+function requireAdminOrManager(req, res, next) {
+  if (!req.user || (req.user.role !== "admin" && req.user.role !== "manager")) {
+    return res.status(403).json({ error: "Недостаточно прав" });
+  }
+  next();
+}
+
 // Отдельная проверка для личного кабинета клиента — токен клиента (по SMS-коду,
 // без пароля) не должен давать доступ к сотруднической части, и наоборот, поэтому
 // проверяем метку type: "client" в самом токене.
@@ -46,4 +56,4 @@ function requireClientAuth(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, requireAdmin, requireClientAuth, SECRET };
+module.exports = { requireAuth, requireAdmin, requireAdminOrManager, requireClientAuth, SECRET };

@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../db");
-const { requireAuth, requireAdmin, SECRET } = require("../middleware/auth");
+const { requireAuth, requireAdmin, requireAdminOrManager, SECRET } = require("../middleware/auth");
 
 // Вход в систему
 router.post("/login", async (req, res, next) => {
@@ -38,8 +38,8 @@ router.get("/me", requireAuth, (req, res) => {
   res.json(req.user);
 });
 
-// Список пользователей (только админ)
-router.get("/users", requireAuth, requireAdmin, async (req, res, next) => {
+// Список пользователей (админ и менеджер)
+router.get("/users", requireAuth, requireAdminOrManager, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       "SELECT id, name, username, role, created_at FROM users WHERE active = true ORDER BY name"
@@ -50,12 +50,24 @@ router.get("/users", requireAuth, requireAdmin, async (req, res, next) => {
   }
 });
 
-// Новый пользователь (только админ)
-router.post("/users", requireAuth, requireAdmin, async (req, res, next) => {
+// Новый пользователь (админ и менеджер — но менеджер не может создать администратора)
+router.post("/users", requireAuth, requireAdminOrManager, async (req, res, next) => {
   try {
     const { name, username, password, role } = req.body;
     if (!name || !username || !password) {
       return res.status(400).json({ error: "Обязательны: name, username, password" });
+    }
+    if (req.user.role === "manager") {
+      if (role === "admin") {
+        return res.status(403).json({ error: "Менеджер не может создавать администраторов" });
+      }
+      const { rows: existing } = await pool.query(
+        "SELECT role FROM users WHERE username = $1",
+        [username.trim().toLowerCase()]
+      );
+      if (existing[0] && existing[0].role === "admin") {
+        return res.status(403).json({ error: "Менеджер не может изменять учётную запись администратора" });
+      }
     }
     const hash = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
@@ -78,7 +90,9 @@ router.post("/users", requireAuth, requireAdmin, async (req, res, next) => {
   }
 });
 
-// Скрыть пользователя — не удаляем насовсем (только админ, нельзя скрыть самого себя).
+// Скрыть пользователя — не удаляем насовсем, только администратор (менеджер может
+// добавлять сотрудников/менеджеров, но не удалять — это оставлено только админу
+// в целях безопасности). Нельзя скрыть самого себя.
 // Если удалить по-настоящему, Postgres не даст: на пользователя ссылаются его старые
 // записи в журнале (records.staff_id), и удаление сломало бы историю операций.
 router.delete("/users/:id", requireAuth, requireAdmin, async (req, res, next) => {
@@ -87,6 +101,25 @@ router.delete("/users/:id", requireAuth, requireAdmin, async (req, res, next) =>
       return res.status(400).json({ error: "Нельзя скрыть свою же учётную запись" });
     }
     await pool.query("UPDATE users SET active = false WHERE id = $1", [req.params.id]);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Сменить пароль пользователю — только администратор (например, если сотрудник забыл свой)
+router.put("/users/:id/password", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 4) {
+      return res.status(400).json({ error: "Пароль должен быть не короче 4 символов" });
+    }
+    const hash = await bcrypt.hash(password, 10);
+    const { rows } = await pool.query(
+      "UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id",
+      [hash, req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Пользователь не найден" });
     res.status(204).send();
   } catch (err) {
     next(err);

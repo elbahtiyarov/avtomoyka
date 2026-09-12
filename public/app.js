@@ -206,8 +206,9 @@ async function showApp() {
   document.getElementById("appLayout").style.display = "flex";
   document.getElementById("currentUserName").textContent = currentUser.name;
   document.getElementById("currentUserRole").textContent = roleLabel(currentUser.role);
-  document.getElementById("usersNavItem").style.display = currentUser.role === "admin" ? "flex" : "none";
-  document.getElementById("loyaltyNavItem").style.display = currentUser.role === "admin" ? "flex" : "none";
+  const isAdminOrManager = currentUser.role === "admin" || currentUser.role === "manager";
+  document.getElementById("usersNavItem").style.display = isAdminOrManager ? "flex" : "none";
+  document.getElementById("loyaltyNavItem").style.display = isAdminOrManager ? "flex" : "none";
   document.getElementById("dateLabel").textContent =
     new Date().toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
 
@@ -1045,8 +1046,8 @@ function renderClientCard() {
     <div class="cc-name">${escapeHtml(c.name || "Без имени")}${isVip ? ` <span class="vip-badge">⭐ VIP</span>` : ""}</div>
     <div class="cc-row"><span>Визитов</span><span>${c.visit_count}</span></div>
     <div class="cc-row"><span>Баллов</span><span>${fmt(c.points_balance)}</span></div>
-    <div class="cc-row"><span>Начислится баллами</span><span>${effectivePercent}%</span></div>
-    ${Number(c.points_balance) > 0 ? `
+    <div class="cc-row"><span>Процент начисления</span><span>${effectivePercent}%</span></div>
+    ${Number(c.points_balance) > 0 && currentUser.role === "admin" ? `
       <div class="cc-redeem">
         <input type="number" id="fRedeemPoints" min="0" max="${c.points_balance}" placeholder="Списать баллов">
         <button type="button" onclick="document.getElementById('fRedeemPoints').value=${c.points_balance}">Списать всё</button>
@@ -1056,6 +1057,8 @@ function renderClientCard() {
         <input type="text" id="fOtpCode" placeholder="Код из SMS" maxlength="4" inputmode="numeric">
       </div>
       <div id="otpStatus" class="otp-status"></div>
+    ` : Number(c.points_balance) > 0 ? `
+      <div style="color:var(--muted);font-size:12px;margin-top:6px;">Списать баллы может только администратор.</div>
     ` : ""}
   `;
 }
@@ -1449,6 +1452,7 @@ async function submitForm(e) {
 // --- Пользователи (только админ) ---
 async function openUsers() {
   document.getElementById("usersOverlay").style.display = "flex";
+  document.getElementById("uRoleAdminOption").style.display = currentUser.role === "manager" ? "none" : "block";
   await loadUsers();
 }
 function closeUsers() { document.getElementById("usersOverlay").style.display = "none"; }
@@ -1456,17 +1460,40 @@ function closeUsers() { document.getElementById("usersOverlay").style.display = 
 async function loadUsers() {
   try {
     const users = await apiAuth("/users");
+    const isAdmin = currentUser.role === "admin";
     document.getElementById("usersList").innerHTML = users.map(u => `
       <div class="user-row">
-        <div>
-          <div>${escapeHtml(u.name)} <span style="color:var(--muted);">(${escapeHtml(u.username)})</span></div>
-          <div class="u-role">${roleLabel(u.role)}</div>
+        <div class="user-row-top">
+          <div>
+            <div>${escapeHtml(u.name)} <span style="color:var(--muted);">(${escapeHtml(u.username)})</span></div>
+            <div class="u-role">${roleLabel(u.role)}</div>
+          </div>
+          ${isAdmin && u.id !== currentUser.id ? `<button class="u-del" onclick="hideUser(${u.id})">Скрыть</button>` : ""}
         </div>
-        ${u.id === currentUser.id ? "" : `<button class="u-del" onclick="hideUser(${u.id})">Скрыть</button>`}
+        ${isAdmin ? `
+          <div class="user-password-row">
+            <input type="text" id="uPwd-${u.id}" placeholder="Новый пароль">
+            <button type="button" onclick="changeUserPassword(${u.id})">Сменить пароль</button>
+          </div>
+        ` : ""}
       </div>
     `).join("") || `<div style="color:var(--muted);font-size:13px;">Пока никого нет</div>`;
   } catch (err) {
     document.getElementById("usersList").innerHTML = `<div style="color:var(--danger);font-size:13px;">${err.message}</div>`;
+  }
+}
+
+async function changeUserPassword(id) {
+  const input = document.getElementById(`uPwd-${id}`);
+  const password = input.value.trim();
+  if (!password) return alert("Введите новый пароль");
+  if (password.length < 4) return alert("Пароль должен быть не короче 4 символов");
+  try {
+    await apiAuth(`/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) });
+    input.value = "";
+    alert("Пароль изменён");
+  } catch (err) {
+    alert("Не удалось сменить пароль: " + err.message);
   }
 }
 

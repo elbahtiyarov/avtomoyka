@@ -342,7 +342,11 @@ tr:hover .del-btn{opacity:1;}
 .expense-row .exp-amount{font-weight:700;color:var(--danger);white-space:nowrap;}
 .expense-row .exp-del{background:transparent;color:var(--muted);font-size:13px;padding:2px 6px;}
 
-.user-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;}
+.user-row{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;}
+.user-row-top{display:flex;align-items:center;justify-content:space-between;}
+.user-password-row{display:flex;gap:6px;}
+.user-password-row input{flex:1;padding:6px 8px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;}
+.user-password-row button{font-size:11px;padding:6px 10px;border-radius:7px;background:var(--blue-soft);color:var(--blue-deep);font-weight:600;white-space:nowrap;}
 .user-row:last-child{border-bottom:none;}
 .user-row .u-role{color:var(--muted);font-size:11px;}
 .user-row .u-del{background:transparent;color:var(--danger);font-size:13px;padding:2px 6px;}
