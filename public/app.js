@@ -585,7 +585,7 @@ async function loadCompaniesPanel() {
         <div class="company-actions">
           <input type="number" id="compCharge-${c.id}" min="0" placeholder="Сумма">
           <button type="button" class="company-charge-btn" onclick="chargeCompany(${c.id})">+ Начислить</button>
-          <button type="button" class="company-pay-btn" onclick="payCompany(${c.id})">✓ Оплачено</button>
+          ${currentUser.role === "admin" ? `<button type="button" class="company-pay-btn" onclick="payCompany(${c.id})">✓ Оплачено</button>` : ""}
         </div>
       </div>
     `).join("");

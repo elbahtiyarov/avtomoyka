@@ -84,8 +84,10 @@ router.post("/:id/charge", async (req, res, next) => {
   }
 });
 
-// Отметить компанию оплаченной — обнуляет долг (бухгалтерия закрыла счёт за месяц)
-router.post("/:id/pay", async (req, res, next) => {
+// Отметить компанию оплаченной — обнуляет долг (бухгалтерия закрыла счёт за месяц).
+// Только администратор — это финансово чувствительное действие, менеджер может
+// только начислять (/charge), но не обнулять долг.
+router.post("/:id/pay", requireAdmin, async (req, res, next) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
