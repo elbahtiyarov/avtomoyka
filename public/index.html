@@ -133,6 +133,10 @@
           <label>Поиск</label>
           <input type="text" id="filterQuery" placeholder="марка, номер, кто принял, бокс…" oninput="applyFiltersDebounced()">
         </div>
+        <label class="filter-unpaid-toggle">
+          <input type="checkbox" id="filterUnpaid" onchange="applyFilters()">
+          ⏳ Только неоплаченные
+        </label>
         <button class="filter-clear" onclick="clearFilters()">Сбросить</button>
       </div>
 
@@ -187,6 +191,13 @@
       </div>
 
       <div class="field">
+        <label class="unpaid-toggle">
+          <input type="checkbox" id="fUnpaid" onchange="onUnpaidToggle()">
+          Клиент оплатит позже (сейчас не оплачено)
+        </label>
+      </div>
+
+      <div class="field" id="paymentMethodField">
         <label>Способ оплаты</label>
         <div class="payment-method-row">
           <label><input type="radio" name="paymentMethod" value="cash" checked onchange="onPaymentMethodChange()"> Наличные</label>

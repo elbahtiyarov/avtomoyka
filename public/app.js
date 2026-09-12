@@ -640,9 +640,11 @@ async function loadRecords(silent) {
     const from = document.getElementById("filterFrom")?.value;
     const to = document.getElementById("filterTo")?.value;
     const q = document.getElementById("filterQuery")?.value.trim();
+    const unpaidOnly = document.getElementById("filterUnpaid")?.checked;
     if (from) params.set("date_from", from);
     if (to) params.set("date_to", to);
     if (q) params.set("q", q);
+    if (unpaidOnly) params.set("unpaid_only", "true");
     const qs = params.toString();
     records = await apiRecords(qs ? `?${qs}` : "");
     render();
@@ -662,6 +664,7 @@ function clearFilters() {
   document.getElementById("filterFrom").value = "";
   document.getElementById("filterTo").value = "";
   document.getElementById("filterQuery").value = "";
+  document.getElementById("filterUnpaid").checked = false;
   loadRecords();
 }
 
@@ -685,6 +688,7 @@ function connectWebSocket() {
 }
 
 function paymentIcon(r) {
+  if (!r.is_paid) return "⏳";
   const cash = Number(r.amount_cash) || 0;
   const qr = Number(r.amount_qr) || 0;
   const invoice = Number(r.amount_invoice) || 0;
@@ -696,6 +700,7 @@ function paymentIcon(r) {
 }
 
 function paymentLabel(r) {
+  if (!r.is_paid) return "⏳ Не оплачено";
   const cash = Number(r.amount_cash) || 0;
   const qr = Number(r.amount_qr) || 0;
   const invoice = Number(r.amount_invoice) || 0;
@@ -752,7 +757,7 @@ function render() {
       <div class="rec-badges">
         <span class="rec-badge">📅 ${dateFmt}</span>
         <span class="rec-badge">📍 ${escapeHtml(r.bay_name || "—")}</span>
-        <span class="rec-badge">${paymentLabel(r)}</span>
+        <span class="${r.is_paid ? "rec-badge" : "unpaid-badge"}">${paymentLabel(r)}</span>
       </div>
       <div class="rec-services">🧴 ${escapeHtml(svcText)}</div>
       <div class="rec-card-footer">
@@ -825,6 +830,8 @@ function openForm(recordId) {
     renderCompanyOptions();
   }
   document.getElementById("newCompanyNameInline").value = "";
+  document.getElementById("fUnpaid").checked = record ? !record.is_paid : false;
+  onUnpaidToggle();
   onPaymentMethodChange();
 
   clearSignature();
@@ -1031,6 +1038,11 @@ async function requestRedeemCode() {
 }
 
 // --- Способ оплаты в форме записи ---
+function onUnpaidToggle() {
+  const unpaid = document.getElementById("fUnpaid").checked;
+  document.getElementById("paymentMethodField").style.display = unpaid ? "none" : "block";
+}
+
 function onPaymentMethodChange() {
   const method = document.querySelector('input[name="paymentMethod"]:checked').value;
   document.getElementById("mixedPaymentRow").style.display = method === "mixed" ? "flex" : "none";
@@ -1359,15 +1371,24 @@ async function submitForm(e) {
     }
   }
 
-  // Наличные/QR считаются от суммы, которая реально перейдёт из рук в руки —
-  // то есть цена минус баллы, которые клиент, возможно, списывает.
-  const estimatedFinal = Math.max(0, price - (payload.redeem_points || 0));
-  Object.assign(payload, computePaymentAmounts(estimatedFinal));
+  const isUnpaid = document.getElementById("fUnpaid").checked;
+  payload.is_paid = !isUnpaid;
 
-  if (document.querySelector('input[name="paymentMethod"]:checked').value === "invoice") {
-    const companyId = document.getElementById("fCompany").value;
-    if (!companyId) return alert("Выберите компанию для оплаты по счёту");
-    payload.company_id = Number(companyId);
+  if (isUnpaid) {
+    payload.amount_cash = 0;
+    payload.amount_qr = 0;
+    payload.amount_invoice = 0;
+  } else {
+    // Наличные/QR считаются от суммы, которая реально перейдёт из рук в руки —
+    // то есть цена минус баллы, которые клиент, возможно, списывает.
+    const estimatedFinal = Math.max(0, price - (payload.redeem_points || 0));
+    Object.assign(payload, computePaymentAmounts(estimatedFinal));
+
+    if (document.querySelector('input[name="paymentMethod"]:checked').value === "invoice") {
+      const companyId = document.getElementById("fCompany").value;
+      if (!companyId) return alert("Выберите компанию для оплаты по счёту");
+      payload.company_id = Number(companyId);
+    }
   }
 
   try {

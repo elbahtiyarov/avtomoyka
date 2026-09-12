@@ -24,6 +24,7 @@ ALTER TABLE records ADD COLUMN IF NOT EXISTS amount_cash NUMERIC(12, 2) NOT NULL
 ALTER TABLE records ADD COLUMN IF NOT EXISTS amount_qr NUMERIC(12, 2) NOT NULL DEFAULT 0;
 ALTER TABLE records ADD COLUMN IF NOT EXISTS amount_invoice NUMERIC(12, 2) NOT NULL DEFAULT 0;
 ALTER TABLE records ADD COLUMN IF NOT EXISTS company_id INTEGER REFERENCES companies(id);
+ALTER TABLE records ADD COLUMN IF NOT EXISTS is_paid BOOLEAN NOT NULL DEFAULT true;
 -- поле было в одной из промежуточных версий и больше не используется — просто убираем,
 -- на остальные данные это не влияет
 ALTER TABLE records DROP COLUMN IF EXISTS visit_discount_applied;

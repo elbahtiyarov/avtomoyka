@@ -36,7 +36,7 @@ const { normalizePhone } = require("../utils/phone");
 //   q           — текстовый поиск по марке, номеру, «кто принял» и названию бокса
 router.get("/", async (req, res, next) => {
   try {
-    const { date, date_from, date_to, q } = req.query;
+    const { date, date_from, date_to, q, unpaid_only } = req.query;
     const baseQuery = `
       SELECT r.*, u.name AS staff_name, u.role AS staff_role, b.name AS bay_name, c.name AS client_name, c.phone AS client_phone,
         co.name AS company_name,
@@ -64,6 +64,9 @@ router.get("/", async (req, res, next) => {
       );
       params.push(`%${q.trim()}%`);
       i++;
+    }
+    if (unpaid_only === "true") {
+      conditions.push("r.is_paid = false");
     }
 
     const whereSql = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
@@ -109,7 +112,7 @@ router.post("/", async (req, res, next) => {
   try {
     const {
       service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by,
-      client_phone, client_name, redeem_points, otp_code, amount_cash, amount_qr, amount_invoice, company_id,
+      client_phone, client_name, redeem_points, otp_code, amount_cash, amount_qr, amount_invoice, company_id, is_paid,
     } = req.body;
 
     if (!service_date || !car_brand || !car_number || price == null || !bay_id || !Array.isArray(service_ids) || service_ids.length === 0) {
@@ -183,11 +186,13 @@ router.post("/", async (req, res, next) => {
 
     // Наличные + QR + безнал по счёту должны в сумме сходиться с итоговой суммой к
     // оплате (после возможного списания баллов) — сервер это проверяет, а не
-    // полагается на фронтенд.
-    const cash = Math.max(0, Number(amount_cash) || 0);
-    const qr = Math.max(0, Number(amount_qr) || 0);
-    const invoice = Math.max(0, Number(amount_invoice) || 0);
-    if (Math.abs(cash + qr + invoice - finalPrice) > 1) {
+    // полагается на фронтенд. Если клиент ещё не оплатил (оплата позже) — эта
+    // проверка не нужна, деньги пока никуда не поступили.
+    const paidNow = is_paid !== false;
+    const cash = paidNow ? Math.max(0, Number(amount_cash) || 0) : 0;
+    const qr = paidNow ? Math.max(0, Number(amount_qr) || 0) : 0;
+    const invoice = paidNow ? Math.max(0, Number(amount_invoice) || 0) : 0;
+    if (paidNow && Math.abs(cash + qr + invoice - finalPrice) > 1) {
       await client.query("ROLLBACK");
       return res.status(400).json({
         error: `Сумма оплаты (${cash + qr + invoice}) не совпадает с итоговой суммой к оплате (${finalPrice})`,
@@ -201,8 +206,8 @@ router.post("/", async (req, res, next) => {
     const { rows: recRows } = await client.query(
       `INSERT INTO records
          (service_date, car_brand, car_number, price, staff_id, received_by, bay_id, signature,
-          client_id, points_earned, points_redeemed, amount_cash, amount_qr, amount_invoice, company_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+          client_id, points_earned, points_redeemed, amount_cash, amount_qr, amount_invoice, company_id, is_paid)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        RETURNING *`,
       [
         service_date,
@@ -220,6 +225,7 @@ router.post("/", async (req, res, next) => {
         qr,
         invoice,
         invoice > 0 ? company_id : null,
+        paidNow,
       ]
     );
     const record = recRows[0];
@@ -261,7 +267,7 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", canModifyRecord, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by, amount_cash, amount_qr, amount_invoice, company_id } = req.body;
+    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by, amount_cash, amount_qr, amount_invoice, company_id, is_paid } = req.body;
 
     if (!service_date || !car_brand || !car_number || price == null || !bay_id || !received_by ||
         !Array.isArray(service_ids) || service_ids.length === 0) {
@@ -270,10 +276,11 @@ router.put("/:id", canModifyRecord, async (req, res, next) => {
       });
     }
 
-    const cash = Math.max(0, Number(amount_cash) || 0);
-    const qr = Math.max(0, Number(amount_qr) || 0);
-    const invoice = Math.max(0, Number(amount_invoice) || 0);
-    if (Math.abs(cash + qr + invoice - Number(price)) > 1) {
+    const paidNow = is_paid !== false;
+    const cash = paidNow ? Math.max(0, Number(amount_cash) || 0) : 0;
+    const qr = paidNow ? Math.max(0, Number(amount_qr) || 0) : 0;
+    const invoice = paidNow ? Math.max(0, Number(amount_invoice) || 0) : 0;
+    if (paidNow && Math.abs(cash + qr + invoice - Number(price)) > 1) {
       return res.status(400).json({
         error: `Сумма оплаты (${cash + qr + invoice}) не совпадает с ценой (${price})`,
       });
@@ -300,14 +307,14 @@ router.put("/:id", canModifyRecord, async (req, res, next) => {
     const { rows: recRows } = await client.query(
       hasSignature
         ? `UPDATE records
-             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, signature=$7, amount_cash=$8, amount_qr=$9, amount_invoice=$10, company_id=$11
-           WHERE id=$12 RETURNING *`
+             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, signature=$7, amount_cash=$8, amount_qr=$9, amount_invoice=$10, company_id=$11, is_paid=$12
+           WHERE id=$13 RETURNING *`
         : `UPDATE records
-             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, amount_cash=$7, amount_qr=$8, amount_invoice=$9, company_id=$10
-           WHERE id=$11 RETURNING *`,
+             SET service_date=$1, car_brand=$2, car_number=$3, price=$4, bay_id=$5, received_by=$6, amount_cash=$7, amount_qr=$8, amount_invoice=$9, company_id=$10, is_paid=$11
+           WHERE id=$12 RETURNING *`,
       hasSignature
-        ? [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), signature || null, cash, qr, invoice, invoice > 0 ? company_id : null, req.params.id]
-        : [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), cash, qr, invoice, invoice > 0 ? company_id : null, req.params.id]
+        ? [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), signature || null, cash, qr, invoice, invoice > 0 ? company_id : null, paidNow, req.params.id]
+        : [service_date, car_brand.trim(), car_number.trim(), price, bay_id, received_by.trim(), cash, qr, invoice, invoice > 0 ? company_id : null, paidNow, req.params.id]
     );
     if (recRows.length === 0) {
       await client.query("ROLLBACK");

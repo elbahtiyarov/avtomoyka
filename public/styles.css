@@ -250,6 +250,12 @@ tr:hover .del-btn{opacity:1;}
 .client-edit-row input[type="number"]{width:80px;}
 .client-edit-row button{font-size:11px;padding:6px 8px;border-radius:7px;background:var(--blue-deep);color:#fff;font-weight:600;}
 
+.unpaid-toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#B8860B;cursor:pointer;}
+.unpaid-toggle input{width:16px;height:16px;accent-color:#B8860B;}
+.filter-unpaid-toggle{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#B8860B;white-space:nowrap;cursor:pointer;}
+.filter-unpaid-toggle input{width:15px;height:15px;accent-color:#B8860B;}
+.unpaid-badge{background:#FCEFC7;color:#8A6116;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;}
+
 /* Способ оплаты в форме записи */
 .payment-method-row{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;}
 .payment-method-row label{display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;}

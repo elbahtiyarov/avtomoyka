@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS records (
     amount_qr                NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- сколько из price оплачено через QR
     amount_invoice           NUMERIC(12, 2) NOT NULL DEFAULT 0,  -- сколько оплачено безналично по счёту (компании)
     company_id               INTEGER REFERENCES companies(id),  -- какая компания платит по счёту (если способ оплаты — "по счёту")
+    is_paid                  BOOLEAN NOT NULL DEFAULT true,      -- оплачено сейчас или клиент заплатит позже
     signature                TEXT,                     -- подпись клиента, PNG в формате base64 data URL
     created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );
