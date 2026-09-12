@@ -220,6 +220,7 @@ async function showApp() {
   document.getElementById("newWasherForm").addEventListener("submit", submitNewWasher);
   document.getElementById("newExpenseForm").addEventListener("submit", submitNewExpense);
   document.getElementById("newCompanyForm").addEventListener("submit", submitNewCompany);
+  document.getElementById("newClientForm").addEventListener("submit", submitNewClient);
 
   await loadServices();
   await loadBays();
@@ -913,6 +914,20 @@ function searchClientsDebounced() {
   clientsSearchTimer = setTimeout(loadClientsList, 300);
 }
 
+async function submitNewClient(e) {
+  e.preventDefault();
+  const name = document.getElementById("clNewName").value.trim();
+  const phone = document.getElementById("clNewPhone").value.trim();
+  if (!phone) return alert("Укажите телефон");
+  try {
+    await apiClients("", { method: "POST", body: JSON.stringify({ name, phone }) });
+    document.getElementById("newClientForm").reset();
+    await loadClientsList();
+  } catch (err) {
+    alert("Не удалось добавить клиента: " + err.message);
+  }
+}
+
 async function loadClientsList() {
   const listEl = document.getElementById("clientsList");
   listEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Загрузка…</div>`;
@@ -928,7 +943,7 @@ async function loadClientsList() {
       <div class="client-row">
         <div class="client-row-view">
           <div>
-            <div class="cr-name">${escapeHtml(c.name || "Без имени")}</div>
+            <div class="cr-name">${escapeHtml(c.name || "Без имени")}${c.points_percent_override != null ? ` <span class="vip-badge">⭐ VIP ${c.points_percent_override}%</span>` : ""}</div>
             <div class="cr-phone">+${escapeHtml(c.phone)}</div>
           </div>
           <div class="cr-stats">${c.visit_count} визитов · ${fmt(c.points_balance)}</div>
@@ -938,6 +953,7 @@ async function loadClientsList() {
             <input type="text" id="clName-${c.id}" value="${escapeHtml(c.name || "")}" placeholder="Имя">
             <input type="number" id="clVisits-${c.id}" value="${c.visit_count}" min="0">
             <input type="number" id="clPoints-${c.id}" value="${c.points_balance}" min="0">
+            <input type="number" id="clVipPercent-${c.id}" value="${c.points_percent_override != null ? c.points_percent_override : ""}" placeholder="Обычный %" min="0" step="0.5" title="Личный % баллов — пусто значит обычный, как у всех">
             <button type="button" onclick="saveClient(${c.id})">Сохранить</button>
           </div>
         ` : ""}
@@ -952,8 +968,10 @@ async function saveClient(id) {
   const name = document.getElementById(`clName-${id}`).value.trim();
   const visit_count = Number(document.getElementById(`clVisits-${id}`).value);
   const points_balance = Number(document.getElementById(`clPoints-${id}`).value);
+  const vipInput = document.getElementById(`clVipPercent-${id}`).value.trim();
+  const points_percent_override = vipInput === "" ? null : Number(vipInput);
   try {
-    await apiClients(`/${id}`, { method: "PUT", body: JSON.stringify({ name, visit_count, points_balance }) });
+    await apiClients(`/${id}`, { method: "PUT", body: JSON.stringify({ name, visit_count, points_balance, points_percent_override }) });
     await loadClientsList();
   } catch (err) {
     alert("Не удалось сохранить: " + err.message);
@@ -1001,10 +1019,14 @@ function renderClientCard() {
   }
 
   const c = loyaltyLookup.client;
+  const effectivePercent = c.points_percent_override != null
+    ? c.points_percent_override
+    : loyaltyLookup.settings.points_percent;
   cardEl.innerHTML = `
-    <div class="cc-name">${escapeHtml(c.name || "Без имени")}</div>
+    <div class="cc-name">${escapeHtml(c.name || "Без имени")}${c.points_percent_override != null ? ` <span class="vip-badge">⭐ VIP</span>` : ""}</div>
     <div class="cc-row"><span>Визитов</span><span>${c.visit_count}</span></div>
     <div class="cc-row"><span>Баллов</span><span>${fmt(c.points_balance)}</span></div>
+    <div class="cc-row"><span>Начислится баллами</span><span>${effectivePercent}%</span></div>
     ${Number(c.points_balance) > 0 ? `
       <div class="cc-redeem">
         <input type="number" id="fRedeemPoints" min="0" max="${c.points_balance}" placeholder="Списать баллов">

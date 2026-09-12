@@ -22,17 +22,43 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// Добавить клиента вручную (имя + телефон) — не дожидаясь первой записи в журнале
+router.post("/", async (req, res, next) => {
+  try {
+    const phone = normalizePhone(req.body.phone);
+    const { name } = req.body;
+    if (!phone) return res.status(400).json({ error: "Укажите телефон" });
+
+    const { rows } = await pool.query(
+      `INSERT INTO clients (phone, name)
+       VALUES ($1, $2)
+       ON CONFLICT (phone) DO UPDATE SET name = COALESCE(EXCLUDED.name, clients.name)
+       RETURNING *`,
+      [phone, (name && name.trim()) || null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Ручная правка карточки клиента — исправление ошибок (только администратор)
 router.put("/:id", requireAdmin, async (req, res, next) => {
   try {
-    const { name, visit_count, points_balance } = req.body;
+    const { name, visit_count, points_balance, points_percent_override } = req.body;
     if (visit_count == null || visit_count < 0 || points_balance == null || points_balance < 0) {
       return res.status(400).json({ error: "Проверьте количество визитов и баллы" });
     }
+    const override = points_percent_override === "" || points_percent_override == null
+      ? null
+      : Number(points_percent_override);
+    if (override != null && (Number.isNaN(override) || override < 0)) {
+      return res.status(400).json({ error: "Проверьте личный процент баллов" });
+    }
     const { rows } = await pool.query(
-      `UPDATE clients SET name = $1, visit_count = $2, points_balance = $3 WHERE id = $4
+      `UPDATE clients SET name = $1, visit_count = $2, points_balance = $3, points_percent_override = $4 WHERE id = $5
        RETURNING *`,
-      [(name && name.trim()) || null, visit_count, points_balance, req.params.id]
+      [(name && name.trim()) || null, visit_count, points_balance, override, req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Клиент не найден" });
     res.json(rows[0]);

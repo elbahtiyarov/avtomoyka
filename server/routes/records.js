@@ -171,7 +171,10 @@ router.post("/", async (req, res, next) => {
       actualRedeemed = Math.max(0, Math.min(requestedRedeem, Number(loyaltyClient.points_balance), finalPrice));
       finalPrice = Math.max(0, finalPrice - actualRedeemed);
 
-      pointsEarned = Math.round(finalPrice * (settings.points_percent / 100) * 100) / 100;
+      const effectivePointsPercent = loyaltyClient.points_percent_override != null
+        ? Number(loyaltyClient.points_percent_override)
+        : Number(settings.points_percent);
+      pointsEarned = Math.round(finalPrice * (effectivePointsPercent / 100) * 100) / 100;
 
       await client.query(
         `UPDATE clients

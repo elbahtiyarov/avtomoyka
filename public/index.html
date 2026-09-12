@@ -301,7 +301,14 @@
       <button class="close-btn" onclick="closeClientsPanel()">✕</button>
     </div>
     <input type="text" id="clientsSearch" placeholder="Поиск по имени или телефону…" oninput="searchClientsDebounced()" style="width:100%;padding:9px 12px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:14px;margin-bottom:12px;">
-    <div id="clientsList"></div>
+    <div id="clientsList" style="margin-bottom:16px;"></div>
+    <form id="newClientForm">
+      <div class="field-row">
+        <div class="field"><label>Имя</label><input type="text" id="clNewName" placeholder="напр. Айгуль"></div>
+        <div class="field"><label>Телефон</label><input type="text" id="clNewPhone" required placeholder="напр. +7 707 123 45 67"></div>
+      </div>
+      <button type="submit" class="save-btn">Добавить клиента</button>
+    </form>
   </div>
 </div>
 

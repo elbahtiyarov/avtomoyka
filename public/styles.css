@@ -242,12 +242,13 @@ tr:hover .del-btn{opacity:1;}
 .client-row:last-child{border-bottom:none;}
 .client-row-view{display:flex;align-items:center;justify-content:space-between;font-size:13px;}
 .client-row-view .cr-name{font-weight:600;}
+.vip-badge{background:linear-gradient(135deg,#F5B942,#E8961B);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap;vertical-align:middle;}
 .client-row-view .cr-phone{color:var(--muted);font-size:12px;}
 .client-row-view .cr-stats{color:var(--blue-deep);font-weight:600;font-size:12px;white-space:nowrap;}
 .client-edit-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;}
 .client-edit-row input{padding:6px 8px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;}
 .client-edit-row input[type="text"]{flex:1;min-width:100px;}
-.client-edit-row input[type="number"]{width:80px;}
+.client-edit-row input[type="number"]{width:66px;}
 .client-edit-row button{font-size:11px;padding:6px 8px;border-radius:7px;background:var(--blue-deep);color:#fff;font-weight:600;}
 
 .unpaid-toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#B8860B;cursor:pointer;}
