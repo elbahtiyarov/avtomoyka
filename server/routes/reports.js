@@ -69,8 +69,11 @@ router.get("/shift", async (req, res, next) => {
     }));
     const washerTotal = Math.round(washerBreakdown.reduce((sum, w) => sum + w.salary, 0) * 100) / 100;
     const adminCut = Math.round(Number(t.total_revenue) * (settings.admin_percent / 100) * 100) / 100;
+    // Остаток кассы: из общей выручки вычитаем всё, что из неё уже "ушло" —
+    // долю администратора, зарплату мойщикам, оплаты через QR и по счёту (это не
+    // наличные деньги в кассе), бонусы, которыми клиенты расплатились, и расходы.
     const cashToHandover = Math.round(
-      (Number(t.total_cash) - washerTotal - adminCut - totalExpenses) * 100
+      (Number(t.total_revenue) - adminCut - washerTotal - Number(t.total_qr) - Number(t.total_invoice) - Number(t.total_bonus_redeemed) - totalExpenses) * 100
     ) / 100;
 
     res.json({

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
+const { requireAdmin } = require("../middleware/auth");
 
 // Список расходов. Фильтры (необязательные, можно комбинировать):
 //   date, date_from, date_to
@@ -51,8 +52,8 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// Удаление расхода (например, внесли по ошибке)
-router.delete("/:id", async (req, res, next) => {
+// Удаление расхода (например, внесли по ошибке) — только администратор
+router.delete("/:id", requireAdmin, async (req, res, next) => {
   try {
     await pool.query("DELETE FROM expenses WHERE id = $1", [req.params.id]);
     req.app.get("broadcast")();

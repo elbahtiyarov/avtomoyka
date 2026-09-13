@@ -522,7 +522,7 @@ async function loadExpensesPanel() {
           <div class="exp-date">${new Date(e.expense_date).toLocaleDateString("ru-RU")} · ${escapeHtml(e.staff_name || "—")}</div>
         </div>
         <div class="exp-amount">−${fmt(e.amount)}</div>
-        <button class="exp-del" onclick="deleteExpense(${e.id})">🗑</button>
+        ${currentUser.role === "admin" ? `<button class="exp-del" onclick="deleteExpense(${e.id})">🗑</button>` : ""}
       </div>
     `).join("");
   } catch (err) {
@@ -1186,7 +1186,7 @@ async function loadReport() {
       ` : ""}
 
       <div class="report-highlight">
-        <div class="rk-label">Наличными сдать (наличные − ЗП мойщиков − процент админа − расходы)</div>
+        <div class="rk-label">Остаток кассы — сдать директору (касса − админ % − ЗП мойщиков − QR − безнал − бонусы − расходы)</div>
         <div class="rk-value">${fmt(r.cash_to_handover)}</div>
       </div>
     `;
@@ -1224,10 +1224,24 @@ function downloadReportPdf() {
   table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;}
   th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #D9E7F6;}
   tfoot td{font-weight:700;border-top:2px solid #D9E7F6;border-bottom:none;}
-  .final{margin-top:22px;padding:16px;background:#1657A6;color:#fff;border-radius:8px;}
+  .final{margin-top:22px;padding:16px;background:#1657A6;color:#fff;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .final .kpi-label{color:rgba(255,255,255,.8);}
   .final .kpi-value{color:#fff;font-size:20px;}
-  @media print{ @page{ margin:16mm; } }
+  .signoff{margin-top:26px;padding-top:14px;border-top:1px dashed #D9E7F6;break-inside:avoid;page-break-inside:avoid;}
+  .signoff-row{display:flex;align-items:baseline;gap:24px;flex-wrap:wrap;margin-bottom:14px;font-size:13px;}
+  .signoff-word{font-weight:700;font-size:15px;color:#1657A6;letter-spacing:.03em;text-transform:uppercase;}
+  .signoff-field{display:flex;align-items:baseline;gap:6px;white-space:nowrap;}
+  .signoff-line{display:inline-block;width:140px;border-bottom:1px solid #122642;}
+  .signoff-line.short{width:80px;}
+  /* Не даём странице разрезать таблицы/итоговую плашку пополам — если не влезает,
+     переносим блок целиком на следующую страницу, а не разрываем его */
+  table, tr, .kpi, .final, .kpi-row{ break-inside: avoid; page-break-inside: avoid; }
+  thead{ display: table-header-group; }
+  tfoot{ display: table-row-group; }
+  @media print{
+    @page{ margin:14mm; }
+    body{ padding:0; }
+  }
 </style></head>
 <body>
   <h1>Aquazone — отчёт по кассе</h1>
@@ -1255,8 +1269,19 @@ function downloadReportPdf() {
   </table>
   ` : ""}
   <div class="final">
-    <div class="kpi-label">Наличными сдать (наличные − ЗП мойщиков − процент админа − расходы)</div>
+    <div class="kpi-label">Остаток кассы — сдать директору (касса − админ % − ЗП мойщиков − QR − безнал − бонусы − расходы)</div>
     <div class="kpi-value">${fmt(r.cash_to_handover)}</div>
+  </div>
+  <div class="signoff">
+    <div class="signoff-row">
+      <span class="signoff-word">Сдано</span>
+      <span class="signoff-field">Сдал: <span class="signoff-line"></span></span>
+      <span class="signoff-field">Дата: <span class="signoff-line short"></span></span>
+    </div>
+    <div class="signoff-row">
+      <span class="signoff-field">Принял: <span class="signoff-line"></span></span>
+      <span class="signoff-field">Подпись: <span class="signoff-line"></span></span>
+    </div>
   </div>
 </body></html>`;
 
