@@ -1228,11 +1228,7 @@ function downloadReportPdf() {
   .final .kpi-label{color:rgba(255,255,255,.8);}
   .final .kpi-value{color:#fff;font-size:20px;}
   .signoff{margin-top:26px;padding-top:14px;border-top:1px dashed #D9E7F6;break-inside:avoid;page-break-inside:avoid;}
-  .signoff-row{display:flex;align-items:baseline;gap:24px;flex-wrap:wrap;margin-bottom:14px;font-size:13px;}
-  .signoff-word{font-weight:700;font-size:15px;color:#1657A6;letter-spacing:.03em;text-transform:uppercase;}
-  .signoff-field{display:flex;align-items:baseline;gap:6px;white-space:nowrap;}
-  .signoff-line{display:inline-block;width:140px;border-bottom:1px solid #122642;}
-  .signoff-line.short{width:80px;}
+  .signoff-final{font-weight:700;font-size:18px;color:#1657A6;letter-spacing:.02em;}
   /* Не даём странице разрезать таблицы/итоговую плашку пополам — если не влезает,
      переносим блок целиком на следующую страницу, а не разрываем его */
   table, tr, .kpi, .final, .kpi-row{ break-inside: avoid; page-break-inside: avoid; }
@@ -1273,15 +1269,7 @@ function downloadReportPdf() {
     <div class="kpi-value">${fmt(r.cash_to_handover)}</div>
   </div>
   <div class="signoff">
-    <div class="signoff-row">
-      <span class="signoff-word">Сдано</span>
-      <span class="signoff-field">Сдал: <span class="signoff-line"></span></span>
-      <span class="signoff-field">Дата: <span class="signoff-line short"></span></span>
-    </div>
-    <div class="signoff-row">
-      <span class="signoff-field">Принял: <span class="signoff-line"></span></span>
-      <span class="signoff-field">Подпись: <span class="signoff-line"></span></span>
-    </div>
+    <div class="signoff-final">СДАНО: ${fmt(r.cash_to_handover)}</div>
   </div>
 </body></html>`;
 
