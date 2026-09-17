@@ -82,6 +82,7 @@
     </div>
     <div class="nav-item active" style="cursor:pointer;" onclick="closeMobileMenu()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> Все записи</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openServicesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> Услуги</div>
+    <div class="nav-item" style="cursor:pointer;" onclick="openBaysPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Боксы</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openWashersPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/></svg> Мойщики</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openClientsPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg> Клиенты</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openExpensesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Расходы</div>
@@ -390,6 +391,24 @@
 </div>
 
 <!-- Модалка мойщиков -->
+<!-- Модалка боксов -->
+<div class="modal-overlay" id="baysOverlay" onclick="closeBaysPanel()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">Боксы</div>
+      <button class="close-btn" onclick="closeBaysPanel()">✕</button>
+    </div>
+    <div id="baysEditList" style="margin-bottom:16px;"></div>
+    <form id="newBayForm">
+      <div class="field">
+        <label>Название</label>
+        <input type="text" id="bayNewName" required placeholder="напр. Бокс 5">
+      </div>
+      <button type="submit" class="save-btn">Добавить бокс</button>
+    </form>
+  </div>
+</div>
+
 <div class="modal-overlay" id="washersOverlay" onclick="closeWashersPanel()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">

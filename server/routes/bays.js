@@ -35,6 +35,27 @@ router.post("/", async (req, res, next) => {
   }
 });
 
+// Переименовать бокс — только администратор
+router.put("/:id", requireAdmin, async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Укажите название бокса" });
+    }
+    const { rows } = await pool.query(
+      `UPDATE bays SET name = $1 WHERE id = $2 RETURNING id, name`,
+      [name.trim(), req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Бокс не найден" });
+    res.json(rows[0]);
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "Бокс с таким названием уже есть" });
+    }
+    next(err);
+  }
+});
+
 // Скрыть бокс (не удаляем — он может быть в старых записях) — только администратор
 router.delete("/:id", requireAdmin, async (req, res, next) => {
   try {

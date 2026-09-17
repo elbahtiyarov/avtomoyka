@@ -219,6 +219,7 @@ async function showApp() {
   document.getElementById("loyaltyForm").addEventListener("submit", submitLoyaltySettings);
   document.getElementById("payrollForm").addEventListener("submit", submitPayrollSettings);
   document.getElementById("newWasherForm").addEventListener("submit", submitNewWasher);
+  document.getElementById("newBayForm").addEventListener("submit", submitNewBay);
   document.getElementById("newExpenseForm").addEventListener("submit", submitNewExpense);
   document.getElementById("newCompanyForm").addEventListener("submit", submitNewCompany);
   document.getElementById("newClientForm").addEventListener("submit", submitNewClient);
@@ -457,6 +458,76 @@ async function submitNewWasher(e) {
     renderWashersPanel();
     renderWasherOptions();
     document.getElementById("newWasherForm").reset();
+  } catch (err) {
+    alert("Не удалось добавить: " + err.message);
+  }
+}
+
+// --- Управление боксами (список, переименование, скрытие — только админ) ---
+async function openBaysPanel() {
+  document.getElementById("baysOverlay").style.display = "flex";
+  await loadBays();
+  renderBaysPanel();
+}
+function closeBaysPanel() { document.getElementById("baysOverlay").style.display = "none"; }
+
+function renderBaysPanel() {
+  const el = document.getElementById("baysEditList");
+  if (bays.length === 0) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px 0;">Пока нет боксов</div>`;
+    return;
+  }
+  const isAdmin = currentUser.role === "admin";
+  el.innerHTML = bays.map(b => isAdmin ? `
+    <div class="svc-edit-row">
+      <input type="text" id="bayName-${b.id}" value="${escapeHtml(b.name)}">
+      <button type="button" class="svc-save" onclick="saveBay(${b.id})">Сохранить</button>
+      <button type="button" class="svc-hide" onclick="hideBay(${b.id})">Скрыть</button>
+    </div>
+  ` : `
+    <div class="svc-edit-row">
+      <span>${escapeHtml(b.name)}</span>
+    </div>
+  `).join("");
+}
+
+async function saveBay(id) {
+  const name = document.getElementById(`bayName-${id}`).value.trim();
+  if (!name) return alert("Укажите название");
+  try {
+    const updated = await apiBays(`/${id}`, { method: "PUT", body: JSON.stringify({ name }) });
+    bays = bays.map(b => b.id === id ? updated : b);
+    renderBaysPanel();
+    renderBayOptions();
+  } catch (err) {
+    alert("Не удалось сохранить: " + err.message);
+  }
+}
+
+async function hideBay(id) {
+  if (!confirm("Скрыть этот бокс из списка? Старые записи он не затронет.")) return;
+  try {
+    await apiBays(`/${id}`, { method: "DELETE" });
+    bays = bays.filter(b => b.id !== id);
+    renderBaysPanel();
+    renderBayOptions();
+  } catch (err) {
+    alert("Не удалось скрыть: " + err.message);
+  }
+}
+
+async function submitNewBay(e) {
+  e.preventDefault();
+  const name = document.getElementById("bayNewName").value.trim();
+  if (!name) return alert("Укажите название");
+  try {
+    const b = await apiBays("", { method: "POST", body: JSON.stringify({ name }) });
+    bays = bays.filter(x => x.id !== b.id);
+    bays.push(b);
+    bays.sort((a, c) => a.name.localeCompare(c.name, "ru"));
+    renderBaysPanel();
+    renderBayOptions();
+    document.getElementById("newBayForm").reset();
   } catch (err) {
     alert("Не удалось добавить: " + err.message);
   }
