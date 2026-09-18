@@ -208,7 +208,7 @@ async function showApp() {
   document.getElementById("currentUserRole").textContent = roleLabel(currentUser.role);
   const isAdminOrManager = currentUser.role === "admin" || currentUser.role === "manager";
   document.getElementById("usersNavItem").style.display = isAdminOrManager ? "flex" : "none";
-  document.getElementById("loyaltyNavItem").style.display = isAdminOrManager ? "flex" : "none";
+  document.getElementById("loyaltyNavItem").style.display = currentUser.role === "admin" ? "flex" : "none";
   document.getElementById("dateLabel").textContent =
     new Date().toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
 
