@@ -180,15 +180,34 @@ router.post("/", async (req, res, next) => {
         : Number(settings.points_percent);
       pointsEarned = Math.round(finalPrice * (effectivePointsPercent / 100) * 100) / 100;
 
+      // Если клиент списал ВЕСЬ накопленный баланс — считаем это полным обнулением:
+      // визиты и баллы сбрасываются в ноль, новые баллы за эту же мойку не
+      // начисляются поверх (иначе баланс не дойдёт до 0, а сразу пополнится).
+      // "Полное списание" — по тому, что клиент запросил списать ВСЁ (кнопка
+      // "Списать всё"), а не по факту: если баллов больше цены мойки, актуально
+      // списанная сумма всё равно ограничена ценой (в минус цена уйти не может),
+      // но карта всё равно должна обнулиться — остаток выше цены просто сгорает.
+      const isFullRedeem = requestedRedeem > 0 && requestedRedeem >= Number(loyaltyClient.points_balance) - 0.01;
+
       await client.query(
-        `UPDATE clients
-           SET visit_count = visit_count + 1,
-               points_balance = points_balance - $1 + $2,
-               name = COALESCE($3, name)
-               ${otpConsumed ? ", otp_code_hash = NULL, otp_expires_at = NULL, otp_attempts = 0" : ""}
-         WHERE id = $4`,
-        [actualRedeemed, pointsEarned, (client_name && client_name.trim()) || null, loyaltyClient.id]
+        isFullRedeem
+          ? `UPDATE clients
+               SET visit_count = 0,
+                   points_balance = 0,
+                   name = COALESCE($1, name)
+                   ${otpConsumed ? ", otp_code_hash = NULL, otp_expires_at = NULL, otp_attempts = 0" : ""}
+             WHERE id = $2`
+          : `UPDATE clients
+               SET visit_count = visit_count + 1,
+                   points_balance = points_balance - $1 + $2,
+                   name = COALESCE($3, name)
+                   ${otpConsumed ? ", otp_code_hash = NULL, otp_expires_at = NULL, otp_attempts = 0" : ""}
+             WHERE id = $4`,
+        isFullRedeem
+          ? [(client_name && client_name.trim()) || null, loyaltyClient.id]
+          : [actualRedeemed, pointsEarned, (client_name && client_name.trim()) || null, loyaltyClient.id]
       );
+      if (isFullRedeem) pointsEarned = 0; // чтобы в ответе/чеке тоже не показывалось начисление
     }
 
     // Наличные + QR + безнал по счёту должны в сумме сходиться с итоговой суммой к
