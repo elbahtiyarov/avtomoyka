@@ -335,6 +335,7 @@ tr:hover .del-btn{opacity:1;}
 .company-actions button{font-size:11px;padding:6px 10px;border-radius:7px;font-weight:600;white-space:nowrap;}
 .company-charge-btn{background:var(--blue-soft);color:var(--blue-deep);}
 .company-pay-btn{background:var(--blue-deep);color:#fff;}
+.company-del-btn{background:transparent;color:var(--danger);border:1px solid var(--danger);}
 
 /* Модалка расходов */
 .expense-row{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px;gap:8px;}

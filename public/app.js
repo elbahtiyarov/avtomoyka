@@ -657,6 +657,7 @@ async function loadCompaniesPanel() {
           <input type="number" id="compCharge-${c.id}" min="0" placeholder="Сумма">
           <button type="button" class="company-charge-btn" onclick="chargeCompany(${c.id})">+ Начислить</button>
           ${currentUser.role === "admin" ? `<button type="button" class="company-pay-btn" onclick="payCompany(${c.id})">✓ Оплачено</button>` : ""}
+          ${currentUser.role === "admin" ? `<button type="button" class="company-del-btn" onclick="deleteCompany(${c.id})">Скрыть</button>` : ""}
         </div>
       </div>
     `).join("");
@@ -698,6 +699,17 @@ async function payCompany(id) {
     await loadCompaniesPanel();
   } catch (err) {
     alert("Не удалось отметить оплату: " + err.message);
+  }
+}
+
+async function deleteCompany(id) {
+  if (!confirm("Скрыть эту компанию из списка? Старые записи в журнале не пострадают.")) return;
+  try {
+    await apiCompanies(`/${id}`, { method: "DELETE" });
+    await loadCompaniesPanel();
+    await loadCompaniesForForm();
+  } catch (err) {
+    alert("Не удалось скрыть: " + err.message);
   }
 }
 
