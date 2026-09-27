@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Мои бонусы — Aquazone</title>
+<title>AquaCoin — Aquazone</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1657A6">
 <link rel="icon" href="icons/favicon-32.png">
@@ -17,9 +17,13 @@
 <div class="login-screen" id="portalScreen">
   <button type="button" class="theme-toggle-corner theme-toggle-btn" data-compact="true" onclick="toggleTheme()">🌙</button>
   <div class="login-box">
-    <div class="brand" style="margin-bottom:20px;justify-content:center;">
+    <div class="brand" style="margin-bottom:14px;justify-content:center;">
       <div class="brand-icon"><img src="icons/brand-icon.png" alt="Aquazone"></div>
       <div><div class="brand-title">Aquazone</div><div class="brand-sub">Личный кабинет клиента</div></div>
+    </div>
+    <div class="aquacoin-badge">
+      <img src="icons/aquacoin-64.png" alt="AquaCoin">
+      <span>Бонусная программа <b>AquaCoin</b></span>
     </div>
 
     <div id="portalError" class="error-state" style="display:none;"></div>
@@ -58,13 +62,17 @@
       <div class="cc-name" id="dName" style="font-size:18px;"></div>
       <div class="cc-row"><span>Телефон</span><span id="dPhone"></span></div>
       <div class="cc-row"><span>Визитов на мойке</span><span id="dVisits"></span></div>
-      <div class="report-highlight" style="margin-top:12px;">
-        <div class="rk-label">Баланс баллов</div>
-        <div class="rk-value" id="dPoints">0 ₸</div>
-      </div>
     </div>
-    <div style="color:var(--muted);font-size:12px;text-align:center;margin-bottom:14px;">
-      Баллами можно оплатить часть следующей мойки — просто назовите свой номер телефона на кассе.
+
+    <div class="aquacoin-card">
+      <div class="aquacoin-card-glow"></div>
+      <img class="aquacoin-card-coin" src="icons/aquacoin-256.png" alt="AquaCoin">
+      <div class="aquacoin-card-label">Баланс AquaCoin</div>
+      <div class="aquacoin-card-value" id="dPoints">0 ₸</div>
+    </div>
+
+    <div style="color:var(--muted);font-size:12px;text-align:center;margin:14px 0;">
+      AquaCoin можно потратить на часть следующей мойки — просто назовите свой номер телефона на кассе.
     </div>
     <button type="button" class="install-app-btn" onclick="portalLogout()">Выйти</button>
   </div>

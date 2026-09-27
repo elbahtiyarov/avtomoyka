@@ -36,7 +36,7 @@
       </div>
       <button type="submit" class="save-btn">Войти</button>
     </form>
-    <a href="client.html" class="install-app-btn" style="display:block;text-align:center;text-decoration:none;">🎁 Узнать свои баллы (для клиентов)</a>
+    <a href="client.html" class="install-app-btn" style="display:flex;align-items:center;justify-content:center;gap:6px;text-align:center;text-decoration:none;"><img src="icons/aquacoin-32.png" alt="AquaCoin" style="width:18px;height:18px;">Узнать свои AquaCoin (для клиентов)</a>
     <button type="button" class="install-app-btn" onclick="openInstallOptions()">📲 Скачать приложение</button>
   </div>
 </div>
@@ -88,7 +88,7 @@
     <div class="nav-item" style="cursor:pointer;" onclick="openExpensesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Расходы</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openCompaniesPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Компании</div>
     <div class="nav-item" style="cursor:pointer;" onclick="openReportPanel()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Отчёт</div>
-    <div class="nav-item" id="loyaltyNavItem" style="display:none;cursor:pointer;" onclick="openLoyaltySettings()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg> Бонусы</div>
+    <div class="nav-item" id="loyaltyNavItem" style="display:none;cursor:pointer;" onclick="openLoyaltySettings()"><img class="nav-icon" src="icons/aquacoin-32.png" alt="" style="border-radius:50%;"> AquaCoin</div>
     <div class="nav-item" id="usersNavItem" style="display:none;cursor:pointer;" onclick="openUsers()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Пользователи</div>
     <div class="sidebar-footer">
       <button type="button" class="theme-toggle-full theme-toggle-btn" onclick="toggleTheme()">🌙 Тёмная тема</button>
@@ -175,7 +175,7 @@
 </div>
 
 <!-- Модалка новой записи -->
-<div class="modal-overlay" id="modalOverlay">
+<div class="modal-overlay" id="modalOverlay" onclick="closeForm()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title" id="modalTitle">Новая запись</div>
@@ -221,7 +221,7 @@
       </div>
 
       <div class="field" id="loyaltySection">
-        <label>Телефон клиента (бонусы, необязательно)</label>
+        <label>Телефон клиента (AquaCoin, необязательно)</label>
         <input type="text" id="fClientPhone" placeholder="напр. +7 707 123 45 67" oninput="lookupClientDebounced()">
         <div id="clientCard" class="client-card" style="display:none;"></div>
       </div>
@@ -317,19 +317,19 @@
 <div class="modal-overlay" id="loyaltyOverlay" onclick="closeLoyaltySettings()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <div class="modal-title">Настройки бонусной программы</div>
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;"><img src="icons/aquacoin-32.png" alt="AquaCoin" style="width:22px;height:22px;">Настройки AquaCoin</div>
       <button class="close-btn" onclick="closeLoyaltySettings()">✕</button>
     </div>
     <form id="loyaltyForm">
       <div class="field">
-        <label>Баллов от суммы визита, %</label>
+        <label>Начисление AquaCoin от суммы визита, %</label>
         <input type="number" id="lsPointsPercent" min="0" max="100" step="0.5" required>
       </div>
       <button type="submit" class="save-btn">Сохранить настройки</button>
     </form>
 
     <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;">
-      <div class="modal-title" style="font-size:14px;margin-bottom:8px;">Как клиент узнает свои баллы</div>
+      <div class="modal-title" style="font-size:14px;margin-bottom:8px;">Как клиент узнает свой баланс AquaCoin</div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:10px;">
         Распечатайте QR-код и повесьте у кассы — клиент сканирует камерой телефона и
         сразу попадает в свой личный кабинет (вход по SMS-коду, без пароля).
@@ -380,10 +380,15 @@
       <button class="close-btn" onclick="closeServicesPanel()">✕</button>
     </div>
     <div id="servicesEditList" style="margin-bottom:16px;"></div>
+    <div style="color:var(--muted);font-size:12px;margin-bottom:10px;">
+      «% мойщику» — необязательно. Если не указать, действует общий процент из отчёта по кассе.
+      Укажите свой % только для услуг, где мойщик получает другую долю (например, химчистка).
+    </div>
     <form id="newServiceForm">
       <div class="field-row">
         <div class="field" style="flex:2;"><label>Название</label><input type="text" id="svcNewName" required placeholder="напр. Дезинфекция салона"></div>
         <div class="field"><label>Цена, ₸</label><input type="number" id="svcNewPrice" required min="0" placeholder="0"></div>
+        <div class="field"><label>% мойщику</label><input type="number" id="svcNewWasherPercent" min="0" max="100" step="0.5" placeholder="общий"></div>
       </div>
       <button type="submit" class="save-btn">Добавить услугу</button>
     </form>

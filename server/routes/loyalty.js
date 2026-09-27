@@ -16,7 +16,7 @@ router.put("/settings", requireAdmin, async (req, res, next) => {
   try {
     const { points_percent } = req.body;
     if (points_percent == null || points_percent < 0) {
-      return res.status(400).json({ error: "Укажите процент баллов" });
+      return res.status(400).json({ error: "Укажите процент AquaCoin" });
     }
     const { rows } = await pool.query(
       `UPDATE loyalty_settings SET points_percent = $1 WHERE id = 1 RETURNING *`,

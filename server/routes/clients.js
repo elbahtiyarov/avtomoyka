@@ -58,13 +58,13 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
   try {
     const { name, visit_count, points_balance, points_percent_override } = req.body;
     if (visit_count == null || visit_count < 0 || points_balance == null || points_balance < 0) {
-      return res.status(400).json({ error: "Проверьте количество визитов и баллы" });
+      return res.status(400).json({ error: "Проверьте количество визитов и AquaCoin" });
     }
     const override = points_percent_override === "" || points_percent_override == null
       ? null
       : Number(points_percent_override);
     if (override != null && (Number.isNaN(override) || override < 0)) {
-      return res.status(400).json({ error: "Проверьте личный процент баллов" });
+      return res.status(400).json({ error: "Проверьте личный процент AquaCoin" });
     }
     const { rows } = await pool.query(
       `UPDATE clients SET name = $1, visit_count = $2, points_balance = $3, points_percent_override = $4 WHERE id = $5
@@ -91,7 +91,7 @@ router.post("/request-redeem-code", requireAdmin, async (req, res, next) => {
     const c = rows[0];
     if (!c) return res.status(404).json({ error: "Клиент не найден" });
     if (Number(c.points_balance) <= 0) {
-      return res.status(400).json({ error: "У клиента нет баллов для списания" });
+      return res.status(400).json({ error: "У клиента нет AquaCoin для списания" });
     }
 
     const code = String(Math.floor(1000 + Math.random() * 9000));
@@ -105,7 +105,7 @@ router.post("/request-redeem-code", requireAdmin, async (req, res, next) => {
 
     const result = await sendCode(
       phone,
-      `Автомойка: код для списания баллов — ${code}. Никому не сообщайте его, кроме сотрудника мойки.`
+      `Aquazone: код для списания AquaCoin — ${code}. Никому не сообщайте его, кроме сотрудника мойки.`
     );
 
     const response = { sent: true, channel: result.channel };

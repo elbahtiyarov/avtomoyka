@@ -7,7 +7,7 @@ const { requireAdmin } = require("../middleware/auth");
 router.get("/", async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, name, price FROM services WHERE active = true ORDER BY name"
+      "SELECT id, name, price, washer_percent_override FROM services WHERE active = true ORDER BY name"
     );
     res.json(rows);
   } catch (err) {
@@ -18,16 +18,20 @@ router.get("/", async (req, res, next) => {
 // Новая услуга — добавить в каталог может любой вошедший сотрудник
 router.post("/", async (req, res, next) => {
   try {
-    const { name, price } = req.body;
+    const { name, price, washer_percent_override } = req.body;
     if (!name || !name.trim() || price == null || price < 0) {
       return res.status(400).json({ error: "Укажите название и цену услуги" });
     }
+    if (washer_percent_override != null && (washer_percent_override < 0 || washer_percent_override > 100)) {
+      return res.status(400).json({ error: "Проверьте процент мойщику за услугу" });
+    }
     const { rows } = await pool.query(
-      `INSERT INTO services (name, price)
-       VALUES ($1, $2)
-       ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price, active = true
-       RETURNING id, name, price`,
-      [name.trim(), price]
+      `INSERT INTO services (name, price, washer_percent_override)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price, active = true,
+         washer_percent_override = EXCLUDED.washer_percent_override
+       RETURNING id, name, price, washer_percent_override`,
+      [name.trim(), price, washer_percent_override == null ? null : washer_percent_override]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -35,17 +39,20 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-// Изменить существующую услугу (название/цена) — только админ
+// Изменить существующую услугу (название/цена/личный % мойщику) — только админ
 router.put("/:id", requireAdmin, async (req, res, next) => {
   try {
-    const { name, price } = req.body;
+    const { name, price, washer_percent_override } = req.body;
     if (!name || !name.trim() || price == null || price < 0) {
       return res.status(400).json({ error: "Укажите название и цену услуги" });
     }
+    if (washer_percent_override != null && (washer_percent_override < 0 || washer_percent_override > 100)) {
+      return res.status(400).json({ error: "Проверьте процент мойщику за услугу" });
+    }
     const { rows } = await pool.query(
-      `UPDATE services SET name = $1, price = $2 WHERE id = $3
-       RETURNING id, name, price`,
-      [name.trim(), price, req.params.id]
+      `UPDATE services SET name = $1, price = $2, washer_percent_override = $3 WHERE id = $4
+       RETURNING id, name, price, washer_percent_override`,
+      [name.trim(), price, washer_percent_override == null ? null : washer_percent_override, req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Услуга не найдена" });
     res.json(rows[0]);

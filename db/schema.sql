@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS services (
     id          SERIAL PRIMARY KEY,
     name        TEXT NOT NULL UNIQUE,
     price       NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (price >= 0),
+    -- личный % зарплаты мойщику за эту услугу вместо общего payroll_settings.washer_percent
+    -- (например, химчистка — 40% вместо обычных 35%); пусто = обычный процент
+    washer_percent_override NUMERIC(5, 2),
     active      BOOLEAN NOT NULL DEFAULT true,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

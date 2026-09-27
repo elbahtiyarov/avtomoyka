@@ -287,6 +287,7 @@ function renderServicesPanel() {
     <div class="svc-edit-row">
       <input type="text" id="svcName-${s.id}" value="${escapeHtml(s.name)}">
       <input type="number" id="svcPrice-${s.id}" value="${s.price}" min="0">
+      <input type="number" id="svcWasherPercent-${s.id}" value="${s.washer_percent_override != null ? s.washer_percent_override : ""}" min="0" max="100" step="0.5" placeholder="общий %" title="Личный % мойщику за эту услугу — пусто означает общий процент" style="max-width:80px;">
       <button type="button" class="svc-save" onclick="saveService(${s.id})">Сохранить</button>
       <button type="button" class="svc-hide" onclick="hideService(${s.id})">Скрыть</button>
     </div>
@@ -301,9 +302,11 @@ function renderServicesPanel() {
 async function saveService(id) {
   const name = document.getElementById(`svcName-${id}`).value.trim();
   const price = Number(document.getElementById(`svcPrice-${id}`).value);
+  const wpInput = document.getElementById(`svcWasherPercent-${id}`).value.trim();
+  const washer_percent_override = wpInput === "" ? null : Number(wpInput);
   if (!name || price < 0) return alert("Проверьте название и цену");
   try {
-    const updated = await apiServices(`/${id}`, { method: "PUT", body: JSON.stringify({ name, price }) });
+    const updated = await apiServices(`/${id}`, { method: "PUT", body: JSON.stringify({ name, price, washer_percent_override }) });
     services = services.map(s => s.id === id ? updated : s);
     renderServicesPanel();
     renderServiceCheckboxes();
@@ -328,9 +331,11 @@ async function submitNewService(e) {
   e.preventDefault();
   const name = document.getElementById("svcNewName").value.trim();
   const price = Number(document.getElementById("svcNewPrice").value);
+  const wpInput = document.getElementById("svcNewWasherPercent").value.trim();
+  const washer_percent_override = wpInput === "" ? null : Number(wpInput);
   if (!name || price < 0) return alert("Укажите название и цену");
   try {
-    const svc = await apiServices("", { method: "POST", body: JSON.stringify({ name, price }) });
+    const svc = await apiServices("", { method: "POST", body: JSON.stringify({ name, price, washer_percent_override }) });
     services = services.filter(s => s.id !== svc.id);
     services.push(svc);
     services.sort((a, b) => a.name.localeCompare(b.name, "ru"));
@@ -657,7 +662,6 @@ async function loadCompaniesPanel() {
           <input type="number" id="compCharge-${c.id}" min="0" placeholder="Сумма">
           <button type="button" class="company-charge-btn" onclick="chargeCompany(${c.id})">+ Начислить</button>
           ${currentUser.role === "admin" ? `<button type="button" class="company-pay-btn" onclick="payCompany(${c.id})">✓ Оплачено</button>` : ""}
-          ${currentUser.role === "admin" ? `<button type="button" class="company-del-btn" onclick="deleteCompany(${c.id})">Скрыть</button>` : ""}
         </div>
       </div>
     `).join("");
@@ -699,17 +703,6 @@ async function payCompany(id) {
     await loadCompaniesPanel();
   } catch (err) {
     alert("Не удалось отметить оплату: " + err.message);
-  }
-}
-
-async function deleteCompany(id) {
-  if (!confirm("Скрыть эту компанию из списка? Старые записи в журнале не пострадают.")) return;
-  try {
-    await apiCompanies(`/${id}`, { method: "DELETE" });
-    await loadCompaniesPanel();
-    await loadCompaniesForForm();
-  } catch (err) {
-    alert("Не удалось скрыть: " + err.message);
   }
 }
 
@@ -1036,14 +1029,14 @@ async function loadClientsList() {
             <div class="cr-name">${escapeHtml(c.name || "Без имени")}${isVip ? ` <span class="vip-badge">⭐ VIP ${c.points_percent_override}%</span>` : ""}</div>
             <div class="cr-phone">+${escapeHtml(c.phone)}</div>
           </div>
-          <div class="cr-stats">${c.visit_count} визитов · ${fmt(c.points_balance)}</div>
+          <div class="cr-stats">${c.visit_count} визитов · ${fmt(c.points_balance)} AquaCoin</div>
         </div>
         ${isAdmin ? `
           <div class="client-edit-row">
             <input type="text" id="clName-${c.id}" value="${escapeHtml(c.name || "")}" placeholder="Имя">
             <input type="number" id="clVisits-${c.id}" value="${c.visit_count}" min="0">
             <input type="number" id="clPoints-${c.id}" value="${c.points_balance}" min="0">
-            <input type="number" id="clVipPercent-${c.id}" value="${c.points_percent_override != null ? c.points_percent_override : ""}" placeholder="Обычный %" min="0" step="0.5" title="Личный % баллов — пусто или как у всех означает обычный тариф, без VIP">
+            <input type="number" id="clVipPercent-${c.id}" value="${c.points_percent_override != null ? c.points_percent_override : ""}" placeholder="Обычный %" min="0" step="0.5" title="Личный % AquaCoin — пусто или как у всех означает обычный тариф, без VIP">
             <button type="button" onclick="saveClient(${c.id})">Сохранить</button>
             <button type="button" class="client-del-btn" onclick="deleteClient(${c.id})">Удалить</button>
           </div>
@@ -1128,11 +1121,11 @@ function renderClientCard() {
   cardEl.innerHTML = `
     <div class="cc-name">${escapeHtml(c.name || "Без имени")}${isVip ? ` <span class="vip-badge">⭐ VIP</span>` : ""}</div>
     <div class="cc-row"><span>Визитов</span><span>${c.visit_count}</span></div>
-    <div class="cc-row"><span>Баллов</span><span>${fmt(c.points_balance)}</span></div>
+    <div class="cc-row"><span><img src="icons/aquacoin-32.png" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:3px;">AquaCoin</span><span>${fmt(c.points_balance)}</span></div>
     <div class="cc-row"><span>Процент начисления</span><span>${effectivePercent}%</span></div>
     ${Number(c.points_balance) > 0 && currentUser.role === "admin" ? `
       <div class="cc-redeem">
-        <input type="number" id="fRedeemPoints" min="0" max="${c.points_balance}" placeholder="Списать баллов">
+        <input type="number" id="fRedeemPoints" min="0" max="${c.points_balance}" placeholder="Списать AquaCoin">
         <button type="button" onclick="document.getElementById('fRedeemPoints').value=${c.points_balance}">Списать всё</button>
       </div>
       <div class="cc-redeem" style="margin-top:6px;">
@@ -1141,7 +1134,7 @@ function renderClientCard() {
       </div>
       <div id="otpStatus" class="otp-status"></div>
     ` : Number(c.points_balance) > 0 ? `
-      <div style="color:var(--muted);font-size:12px;margin-top:6px;">Списать баллы может только администратор.</div>
+      <div style="color:var(--muted);font-size:12px;margin-top:6px;">Списывать AquaCoin может только администратор.</div>
     ` : ""}
   `;
 }
@@ -1211,6 +1204,52 @@ async function openReportPanel() {
 }
 function closeReportPanel() { document.getElementById("reportOverlay").style.display = "none"; }
 
+// Строит таблицу "Мойщик / Машин / Выручка / [колонка на каждую услугу со своим %] /
+// ЗП по общим услугам / Итого ЗП" — отдельная колонка на каждую услугу с личным %
+// нагляднее, чем текст под именем мойщика. Колонки собираются по данным периода:
+// если за период не было ни одной записи с химчисткой — колонки для неё не будет.
+// Используется и в модалке отчёта, и в PDF (там html-обёртка/стили другие,
+// сама таблица — эта же функция).
+function buildWasherTableHtml(r, mutedColor) {
+  const muted = mutedColor || "var(--muted)";
+  const cols = r.override_columns || [];
+  const headExtra = cols.map(c => `<th>${escapeHtml(c.name)} (${c.percent}%)</th>`).join("");
+  const rows = r.washer_breakdown.map(w => {
+    const cells = cols.map(c => {
+      const found = (w.overrides || []).find(o => o.name === c.name && o.percent === c.percent);
+      return `<td>${found ? fmt(found.amount) : "—"}</td>`;
+    }).join("");
+    return `
+      <tr>
+        <td>${escapeHtml(w.name)}</td>
+        <td>${w.cars_count}</td>
+        <td>${fmt(w.revenue)}</td>
+        ${cells}
+        <td>${fmt(w.base_salary)}</td>
+        <td><b>${fmt(w.salary)}</b></td>
+      </tr>
+    `;
+  }).join("");
+  const totalCols = 5 + cols.length; // Мойщик+Машин+Выручка + колонки услуг + ЗП(общий) + Итого
+  return `
+    <table class="washer-table">
+      <thead><tr>
+        <th>Мойщик</th><th>Машин</th><th>Выручка</th>
+        ${headExtra}
+        <th>ЗП по общим услугам (${r.washer_percent}%)</th>
+        <th>Итого ЗП</th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="${totalCols}" style="color:${muted};">Записей нет</td></tr>`}</tbody>
+      <tfoot><tr><td colspan="${totalCols - 1}">Итого зарплата мойщикам</td><td><b>${fmt(r.washer_total)}</b></td></tr></tfoot>
+    </table>
+    ${cols.length ? `
+      <div style="color:${muted};font-size:11px;margin-top:-8px;margin-bottom:10px;">
+        Колонки с услугами — их личный % мойщику (настраивается в разделе «Услуги»). «ЗП по общим услугам» — оставшаяся часть суммы по общему проценту.
+      </div>
+    ` : ""}
+  `;
+}
+
 async function loadReport() {
   const bodyEl = document.getElementById("reportBody");
   bodyEl.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">Загрузка…</div>`;
@@ -1224,14 +1263,7 @@ async function loadReport() {
     lastReportData = r;
     lastReportPeriod = from === to ? from : `${from} — ${to}`;
 
-    const washerRows = r.washer_breakdown.map(w => `
-      <tr>
-        <td>${escapeHtml(w.name)}</td>
-        <td>${w.cars_count}</td>
-        <td>${fmt(w.revenue)}</td>
-        <td>${fmt(w.salary)}</td>
-      </tr>
-    `).join("");
+    const washerTableHtml = buildWasherTableHtml(r);
 
     const expenseRows = (r.expenses || []).map(e => `
       <tr>
@@ -1254,11 +1286,7 @@ async function loadReport() {
         <div class="report-kpi"><div class="rk-label">Расходы</div><div class="rk-value" style="color:var(--danger);">−${fmt(r.total_expenses)}</div></div>
       </div>
 
-      <table class="washer-table">
-        <thead><tr><th>Мойщик</th><th>Машин</th><th>Выручка</th><th>ЗП (${r.washer_percent}%)</th></tr></thead>
-        <tbody>${washerRows || `<tr><td colspan="4" style="color:var(--muted);">Записей нет</td></tr>`}</tbody>
-        <tfoot><tr><td colspan="3">Итого зарплата мойщикам</td><td>${fmt(r.washer_total)}</td></tr></tfoot>
-      </table>
+      ${washerTableHtml}
 
       ${(r.expenses || []).length > 0 ? `
         <table class="washer-table">
@@ -1269,7 +1297,7 @@ async function loadReport() {
       ` : ""}
 
       <div class="report-highlight">
-        <div class="rk-label">Остаток кассы — сдать директору (касса − админ % − ЗП мойщиков − QR − безнал − бонусы − расходы)</div>
+        <div class="rk-label">Остаток кассы — сдать директору (касса − админ % − ЗП мойщиков − QR − безнал − AquaCoin − расходы)</div>
         <div class="rk-value">${fmt(r.cash_to_handover)}</div>
       </div>
     `;
@@ -1286,9 +1314,7 @@ function downloadReportPdf() {
   if (!lastReportData) return alert("Сначала дождитесь загрузки отчёта");
   const r = lastReportData;
 
-  const washerRows = r.washer_breakdown.map(w => `
-    <tr><td>${escapeHtml(w.name)}</td><td>${w.cars_count}</td><td>${fmt(w.revenue)}</td><td>${fmt(w.salary)}</td></tr>
-  `).join("");
+  const washerTableHtml = buildWasherTableHtml(r, "#6C86A6");
 
   const expenseRows = (r.expenses || []).map(e => `
     <tr><td>${new Date(e.expense_date).toLocaleDateString("ru-RU")}</td><td>${escapeHtml(e.description)}</td><td>${escapeHtml(e.staff_name || "—")}</td><td>${fmt(e.amount)}</td></tr>
@@ -1335,11 +1361,7 @@ function downloadReportPdf() {
     <div class="kpi"><div class="kpi-label">Процент админа (${r.admin_percent}%)</div><div class="kpi-value">${fmt(r.admin_cut)}</div></div>
     <div class="kpi"><div class="kpi-label">Расходы</div><div class="kpi-value">−${fmt(r.total_expenses)}</div></div>
   </div>
-  <table>
-    <thead><tr><th>Мойщик</th><th>Машин</th><th>Выручка</th><th>ЗП (${r.washer_percent}%)</th></tr></thead>
-    <tbody>${washerRows || `<tr><td colspan="4">Записей нет</td></tr>`}</tbody>
-    <tfoot><tr><td colspan="3">Итого зарплата мойщикам</td><td>${fmt(r.washer_total)}</td></tr></tfoot>
-  </table>
+  ${washerTableHtml}
   ${expenseRows ? `
   <table>
     <thead><tr><th>Дата</th><th>За что</th><th>Кто внёс</th><th>Сумма</th></tr></thead>
@@ -1348,7 +1370,7 @@ function downloadReportPdf() {
   </table>
   ` : ""}
   <div class="final">
-    <div class="kpi-label">Остаток кассы — сдать директору (касса − админ % − ЗП мойщиков − QR − безнал − бонусы − расходы)</div>
+    <div class="kpi-label">Остаток кассы — сдать директору (касса − админ % − ЗП мойщиков − QR − безнал − AquaCoin − расходы)</div>
     <div class="kpi-value">${fmt(r.cash_to_handover)}</div>
   </div>
   <div class="signoff">
@@ -1506,7 +1528,7 @@ async function submitForm(e) {
       if (payload.redeem_points > 0) {
         const otpEl = document.getElementById("fOtpCode");
         payload.otp_code = otpEl ? otpEl.value.trim() : "";
-        if (!payload.otp_code) return alert("Введите код из SMS, чтобы списать баллы");
+        if (!payload.otp_code) return alert("Введите код из SMS, чтобы списать AquaCoin");
       }
     }
   }

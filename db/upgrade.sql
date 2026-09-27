@@ -29,6 +29,10 @@ ALTER TABLE records ADD COLUMN IF NOT EXISTS is_paid BOOLEAN NOT NULL DEFAULT tr
 -- на остальные данные это не влияет
 ALTER TABLE records DROP COLUMN IF EXISTS visit_discount_applied;
 
+-- services: личный % зарплаты мойщику за конкретную услугу (например, химчистка — 40%
+-- вместо обычных 35%) вместо общего payroll_settings.washer_percent
+ALTER TABLE services ADD COLUMN IF NOT EXISTS washer_percent_override NUMERIC(5, 2);
+
 -- clients: поля для SMS-кода на списание баллов
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS otp_code_hash TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS otp_expires_at TIMESTAMPTZ;

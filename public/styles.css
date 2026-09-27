@@ -324,6 +324,40 @@ tr:hover .del-btn{opacity:1;}
 .client-card .cc-redeem button{font-size:11px;padding:6px 8px;border-radius:7px;background:var(--blue-soft);color:var(--blue-deep);font-weight:600;white-space:nowrap;}
 .client-card .otp-status{margin-top:6px;font-size:12px;color:var(--muted);}
 
+/* AquaCoin — брендинг бонусной программы */
+.aquacoin-badge{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:999px;padding:6px 14px;margin:0 auto 18px;width:fit-content;
+  font-size:12px;color:var(--muted);
+}
+.aquacoin-badge img{width:20px;height:20px;flex-shrink:0;}
+.aquacoin-badge b{color:var(--blue-deep);font-weight:700;}
+
+.aquacoin-card{
+  position:relative;overflow:hidden;
+  background:linear-gradient(160deg,#0B3A73 0%, var(--blue-deep) 45%, var(--blue) 100%);
+  border-radius:18px;padding:22px 16px 20px;
+  text-align:center;color:#fff;
+  box-shadow:0 12px 30px rgba(22,87,166,.35);
+}
+.aquacoin-card-glow{
+  position:absolute;top:-40%;right:-20%;width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle, rgba(255,255,255,.25), rgba(255,255,255,0) 70%);
+  pointer-events:none;
+}
+.aquacoin-card-coin{
+  width:64px;height:64px;object-fit:contain;margin:0 auto 10px;display:block;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));
+  animation:aquacoin-float 3.2s ease-in-out infinite;
+}
+@keyframes aquacoin-float{
+  0%,100%{transform:translateY(0);}
+  50%{transform:translateY(-5px);}
+}
+.aquacoin-card-label{font-size:12px;letter-spacing:.03em;color:rgba(255,255,255,.82);font-weight:600;text-transform:uppercase;}
+.aquacoin-card-value{font-size:30px;font-weight:800;margin-top:4px;letter-spacing:-0.01em;}
+
 /* Модалка компаний (безналичный расчёт) */
 .company-row{padding:10px 4px;border-bottom:1px solid var(--border);}
 .company-row:last-child{border-bottom:none;}
@@ -335,7 +369,6 @@ tr:hover .del-btn{opacity:1;}
 .company-actions button{font-size:11px;padding:6px 10px;border-radius:7px;font-weight:600;white-space:nowrap;}
 .company-charge-btn{background:var(--blue-soft);color:var(--blue-deep);}
 .company-pay-btn{background:var(--blue-deep);color:#fff;}
-.company-del-btn{background:transparent;color:var(--danger);border:1px solid var(--danger);}
 
 /* Модалка расходов */
 .expense-row{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px;gap:8px;}

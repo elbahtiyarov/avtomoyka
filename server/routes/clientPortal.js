@@ -18,7 +18,7 @@ router.post("/request-code", async (req, res, next) => {
     const { rows } = await pool.query("SELECT * FROM clients WHERE phone = $1", [phone]);
     const client = rows[0];
     if (!client) {
-      return res.status(404).json({ error: "Клиент с таким номером не найден. Обратитесь на мойку, чтобы завести бонусный счёт." });
+      return res.status(404).json({ error: "Клиент с таким номером не найден. Обратитесь на мойку, чтобы завести счёт AquaCoin." });
     }
 
     const code = String(Math.floor(1000 + Math.random() * 9000));
@@ -32,7 +32,7 @@ router.post("/request-code", async (req, res, next) => {
 
     const result = await sendCode(
       phone,
-      `Автомойка: код для входа в личный кабинет — ${code}. Никому его не сообщайте.`
+      `Aquazone: код для входа в личный кабинет AquaCoin — ${code}. Никому его не сообщайте.`
     );
 
     const response = { sent: true, channel: result.channel };
