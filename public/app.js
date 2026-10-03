@@ -935,40 +935,69 @@ function openForm(recordId) {
     img.onload = () => sigCanvas.getContext("2d").drawImage(img, 0, 0, sigCanvas.width, sigCanvas.height);
     img.src = record.signature;
   }
+  selectedServiceIds = new Set((record ? record.services || [] : []).map(s => s.id));
+  document.getElementById("serviceSearch").value = "";
   renderServiceCheckboxes();
   renderBayOptions();
   renderWasherOptions();
   document.getElementById("fReceivedBy").value = record ? record.received_by : currentUser.name;
   if (record) {
     document.getElementById("fBay").value = String(record.bay_id || "");
-    const selectedIds = new Set((record.services || []).map(s => String(s.id)));
-    document.querySelectorAll('#servicesList input[type="checkbox"]').forEach(cb => {
-      cb.checked = selectedIds.has(cb.value);
-    });
   }
   document.getElementById("modalOverlay").style.display = "flex";
 }
 function closeForm() { document.getElementById("modalOverlay").style.display = "none"; editingRecordId = null; }
 
+// Услуги выбираются не мелкими чекбоксами, а крупными тап-карточками (удобнее
+// нажимать пальцем на телефоне/планшете) — выбранные id храним отдельно, а
+// карточки просто перерисовываем при каждом изменении.
+let selectedServiceIds = new Set();
+
 function renderServiceCheckboxes() {
   const el = document.getElementById("servicesList");
   if (!el) return;
+
+  const countEl = document.getElementById("svcSelectedCount");
+  if (countEl) countEl.textContent = selectedServiceIds.size > 0 ? `· выбрано ${selectedServiceIds.size}` : "";
+
   if (services.length === 0) {
     el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px;">Пока нет услуг — добавьте первую ниже</div>`;
     return;
   }
-  el.innerHTML = services.map(s => `
-    <label class="service-item">
-      <input type="checkbox" value="${s.id}" data-price="${s.price}" onchange="recalcPrice()">
-      <span class="svc-name">${escapeHtml(s.name)}</span>
+
+  // Поиск фильтрует только то, что показано — выбор при этом не теряется,
+  // даже если отфильтровать услугу из вида (поэтому и нужен счётчик "выбрано").
+  const searchEl = document.getElementById("serviceSearch");
+  const query = searchEl ? searchEl.value.trim().toLowerCase() : "";
+  const filtered = query ? services.filter(s => s.name.toLowerCase().includes(query)) : services;
+
+  if (filtered.length === 0) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:8px;">Ничего не найдено по «${escapeHtml(searchEl.value.trim())}»</div>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map(s => `
+    <div class="service-chip ${selectedServiceIds.has(s.id) ? "selected" : ""}" onclick="toggleService(${s.id})">
+      <div class="svc-top">
+        <span class="svc-check">✓</span>
+        <span class="svc-name">${escapeHtml(s.name)}</span>
+      </div>
       <span class="svc-price">${fmt(s.price)}</span>
-    </label>
+    </div>
   `).join("");
 }
 
+function toggleService(id) {
+  if (selectedServiceIds.has(id)) selectedServiceIds.delete(id);
+  else selectedServiceIds.add(id);
+  renderServiceCheckboxes();
+  recalcPrice();
+}
+
 function recalcPrice() {
-  const checked = [...document.querySelectorAll('#servicesList input[type="checkbox"]:checked')];
-  const sum = checked.reduce((acc, c) => acc + Number(c.dataset.price), 0);
+  const sum = services
+    .filter(s => selectedServiceIds.has(s.id))
+    .reduce((acc, s) => acc + Number(s.price), 0);
   document.getElementById("fPrice").value = sum;
 }
 
@@ -981,12 +1010,12 @@ async function addService() {
     services = services.filter(s => s.id !== svc.id);
     services.push(svc);
     services.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    // сразу отмечаем добавленную услугу
+    selectedServiceIds.add(svc.id);
     renderServiceCheckboxes();
+    recalcPrice();
     document.getElementById("newServiceName").value = "";
     document.getElementById("newServicePrice").value = "";
-    // сразу отмечаем добавленную услугу
-    const checkbox = document.querySelector(`#servicesList input[value="${svc.id}"]`);
-    if (checkbox) { checkbox.checked = true; recalcPrice(); }
   } catch (err) {
     alert("Не удалось добавить услугу: " + err.message);
   }
@@ -1522,8 +1551,7 @@ async function submitForm(e) {
   const price = Number(document.getElementById("fPrice").value);
   if (price == null || price < 0) return alert("Укажите корректную цену");
 
-  const service_ids = [...document.querySelectorAll('#servicesList input[type="checkbox"]:checked')]
-    .map(c => Number(c.value));
+  const service_ids = [...selectedServiceIds];
   if (service_ids.length === 0) return alert("Выберите хотя бы одну услугу");
 
   const bay_id = Number(document.getElementById("fBay").value);

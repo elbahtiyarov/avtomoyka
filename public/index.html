@@ -246,7 +246,8 @@
       </div>
 
       <div class="field">
-        <label>Услуги</label>
+        <label>Услуги <span id="svcSelectedCount" class="svc-selected-count"></span></label>
+        <input type="text" id="serviceSearch" placeholder="🔍 Поиск услуги…" oninput="renderServiceCheckboxes()" style="margin-bottom:8px;">
         <div class="services-list" id="servicesList"></div>
         <div class="add-service-row">
           <input type="text" id="newServiceName" placeholder="Название новой услуги">
