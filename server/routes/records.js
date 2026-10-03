@@ -274,7 +274,7 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", canModifyRecord, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by, amount_cash, amount_qr, amount_invoice, company_id, is_paid } = req.body;
+    const { service_date, car_brand, car_number, price, signature, service_ids, bay_id, received_by, amount_cash, amount_qr, amount_invoice, company_id, is_paid, client_phone, client_name } = req.body;
 
     if (!service_date || !car_brand || !car_number || price == null || !bay_id || !received_by ||
         !Array.isArray(service_ids) || service_ids.length === 0) {
@@ -301,7 +301,7 @@ router.put("/:id", canModifyRecord, async (req, res, next) => {
     // Запоминаем старый способ оплаты по счёту — если он менялся, долг компании
     // нужно пересчитать (снять старое начисление, применить новое)
     const { rows: beforeRows } = await client.query(
-      "SELECT company_id, amount_invoice FROM records WHERE id = $1",
+      "SELECT company_id, amount_invoice, client_id FROM records WHERE id = $1",
       [req.params.id]
     );
     if (beforeRows.length === 0) {
@@ -328,6 +328,46 @@ router.put("/:id", canModifyRecord, async (req, res, next) => {
       return res.status(404).json({ error: "Запись не найдена" });
     }
     const record = recRows[0];
+
+    // Телефон клиента при создании записи не указали, а добавляют только сейчас,
+    // при редактировании — начисляем AquaCoin задним числом. Если клиент уже был
+    // привязан (при создании), трогать его нельзя — баллы уже начислены, менять
+    // телефон задним числом задвоило бы начисление (на фронтенде это поле тогда
+    // скрыто, но проверяем и здесь, чтобы не положиться только на интерфейс).
+    const phone = client_phone ? normalizePhone(client_phone) : null;
+    if (phone && !before.client_id) {
+      const { rows: settingsRows } = await client.query("SELECT * FROM loyalty_settings WHERE id = 1");
+      const settings = settingsRows[0];
+
+      const { rows: clientRows } = await client.query(
+        `INSERT INTO clients (phone)
+         VALUES ($1)
+         ON CONFLICT (phone) DO UPDATE SET phone = EXCLUDED.phone, active = true
+         RETURNING *`,
+        [phone]
+      );
+      const loyaltyClient = clientRows[0];
+
+      const effectivePointsPercent = loyaltyClient.points_percent_override != null
+        ? Number(loyaltyClient.points_percent_override)
+        : Number(settings.points_percent);
+      const pointsEarned = Math.round(Number(price) * (effectivePointsPercent / 100) * 100) / 100;
+
+      await client.query(
+        `UPDATE clients
+           SET visit_count = visit_count + 1,
+               points_balance = points_balance + $1,
+               name = COALESCE($2, name)
+         WHERE id = $3`,
+        [pointsEarned, (client_name && client_name.trim()) || null, loyaltyClient.id]
+      );
+      await client.query(
+        `UPDATE records SET client_id = $1, points_earned = $2 WHERE id = $3`,
+        [loyaltyClient.id, pointsEarned, record.id]
+      );
+      record.client_id = loyaltyClient.id;
+      record.points_earned = pointsEarned;
+    }
 
     // Снимаем старое начисление (если было) и применяем новое (если есть) —
     // так долг компании не расходится с реальными записями после редактирования

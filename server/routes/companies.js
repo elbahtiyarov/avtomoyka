@@ -7,7 +7,7 @@ const { requireAdmin } = require("../middleware/auth");
 router.get("/", async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, name, balance FROM companies WHERE active = true ORDER BY name"
+      `SELECT id, name, balance FROM companies WHERE active = true ORDER BY name`
     );
     res.json(rows);
   } catch (err) {

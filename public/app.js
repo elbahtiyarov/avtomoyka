@@ -886,9 +886,25 @@ function openForm(recordId) {
   document.getElementById("newBayName").value = "";
   document.getElementById("newWasherName").value = "";
   document.getElementById("fClientPhone").value = "";
+  document.getElementById("fClientPhone").style.display = "";
   document.getElementById("clientCard").style.display = "none";
+  document.getElementById("loyaltyLockedNote").style.display = "none";
   loyaltyLookup = null;
-  document.getElementById("loyaltySection").style.display = record ? "none" : "block";
+  document.getElementById("loyaltySection").style.display = "block";
+
+  if (record && record.client_id) {
+    // Клиент уже был привязан при создании записи — баллы уже начислены.
+    // Менять телефон задним числом нельзя (задвоило бы начисление), поэтому
+    // просто показываем, кто привязан, без возможности редактировать.
+    document.getElementById("fClientPhone").style.display = "none";
+    const noteEl = document.getElementById("loyaltyLockedNote");
+    noteEl.style.display = "block";
+    noteEl.innerHTML = `
+      <div class="cc-name">${escapeHtml(record.client_name || "Без имени")}</div>
+      <div class="cc-row"><span>Телефон</span><span>${escapeHtml(record.client_phone || "")}</span></div>
+      <div style="color:var(--muted);font-size:12px;margin-top:6px;">AquaCoin уже начислены при создании записи — телефон нельзя изменить при редактировании.</div>
+    `;
+  }
 
   if (record) {
     const method = Number(record.amount_invoice) > 0
@@ -1118,24 +1134,34 @@ function renderClientCard() {
     ? c.points_percent_override
     : loyaltyLookup.settings.points_percent;
   const isVip = c.points_percent_override != null && Number(c.points_percent_override) > Number(loyaltyLookup.settings.points_percent);
+
+  let redeemBlock = "";
+  if (Number(c.points_balance) > 0) {
+    if (editingRecordId) {
+      redeemBlock = `<div style="color:var(--muted);font-size:12px;margin-top:6px;">Списание AquaCoin доступно только при создании новой записи.</div>`;
+    } else if (currentUser.role === "admin") {
+      redeemBlock = `
+        <div class="cc-redeem">
+          <input type="number" id="fRedeemPoints" min="0" max="${c.points_balance}" placeholder="Списать AquaCoin">
+          <button type="button" onclick="document.getElementById('fRedeemPoints').value=${c.points_balance}">Списать всё</button>
+        </div>
+        <div class="cc-redeem" style="margin-top:6px;">
+          <button type="button" onclick="requestRedeemCode()">📩 Запросить SMS-код</button>
+          <input type="text" id="fOtpCode" placeholder="Код из SMS" maxlength="4" inputmode="numeric">
+        </div>
+        <div id="otpStatus" class="otp-status"></div>
+      `;
+    } else {
+      redeemBlock = `<div style="color:var(--muted);font-size:12px;margin-top:6px;">Списывать AquaCoin может только администратор.</div>`;
+    }
+  }
+
   cardEl.innerHTML = `
     <div class="cc-name">${escapeHtml(c.name || "Без имени")}${isVip ? ` <span class="vip-badge">⭐ VIP</span>` : ""}</div>
     <div class="cc-row"><span>Визитов</span><span>${c.visit_count}</span></div>
     <div class="cc-row"><span><img src="icons/aquacoin-32.png" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:3px;">AquaCoin</span><span>${fmt(c.points_balance)}</span></div>
     <div class="cc-row"><span>Процент начисления</span><span>${effectivePercent}%</span></div>
-    ${Number(c.points_balance) > 0 && currentUser.role === "admin" ? `
-      <div class="cc-redeem">
-        <input type="number" id="fRedeemPoints" min="0" max="${c.points_balance}" placeholder="Списать AquaCoin">
-        <button type="button" onclick="document.getElementById('fRedeemPoints').value=${c.points_balance}">Списать всё</button>
-      </div>
-      <div class="cc-redeem" style="margin-top:6px;">
-        <button type="button" onclick="requestRedeemCode()">📩 Запросить SMS-код</button>
-        <input type="text" id="fOtpCode" placeholder="Код из SMS" maxlength="4" inputmode="numeric">
-      </div>
-      <div id="otpStatus" class="otp-status"></div>
-    ` : Number(c.points_balance) > 0 ? `
-      <div style="color:var(--muted);font-size:12px;margin-top:6px;">Списывать AquaCoin может только администратор.</div>
-    ` : ""}
+    ${redeemBlock}
   `;
 }
 
@@ -1517,18 +1543,24 @@ async function submitForm(e) {
     signature: hasSignature ? sigCanvas.toDataURL("image/png") : null,
   };
 
-  if (!editingRecordId) {
+  {
+    // В форме редактирования поле телефона скрыто и пустое, если клиент уже был
+    // привязан при создании записи (баллы уже начислены — задвоить нельзя), но
+    // доступно и может быть заполнено, если записи телефон не был указан сразу —
+    // тогда баллы начислятся задним числом вместе с сохранением изменений.
     const phoneRaw = document.getElementById("fClientPhone").value.trim();
     if (phoneRaw) {
       payload.client_phone = phoneRaw;
       const nameEl = document.getElementById("fClientName");
       if (nameEl && nameEl.value.trim()) payload.client_name = nameEl.value.trim();
-      const redeemEl = document.getElementById("fRedeemPoints");
-      payload.redeem_points = redeemEl ? Number(redeemEl.value) || 0 : 0;
-      if (payload.redeem_points > 0) {
-        const otpEl = document.getElementById("fOtpCode");
-        payload.otp_code = otpEl ? otpEl.value.trim() : "";
-        if (!payload.otp_code) return alert("Введите код из SMS, чтобы списать AquaCoin");
+      if (!editingRecordId) {
+        const redeemEl = document.getElementById("fRedeemPoints");
+        payload.redeem_points = redeemEl ? Number(redeemEl.value) || 0 : 0;
+        if (payload.redeem_points > 0) {
+          const otpEl = document.getElementById("fOtpCode");
+          payload.otp_code = otpEl ? otpEl.value.trim() : "";
+          if (!payload.otp_code) return alert("Введите код из SMS, чтобы списать AquaCoin");
+        }
       }
     }
   }
