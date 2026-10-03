@@ -1259,16 +1259,85 @@ async function openReportPanel() {
 }
 function closeReportPanel() { document.getElementById("reportOverlay").style.display = "none"; }
 
-// Строит таблицу "Мойщик / Машин / Выручка / [колонка на каждую услугу со своим %] /
-// ЗП по общим услугам / Итого ЗП" — отдельная колонка на каждую услугу с личным %
-// нагляднее, чем текст под именем мойщика. Колонки собираются по данным периода:
-// если за период не было ни одной записи с химчисткой — колонки для неё не будет.
-// Используется и в модалке отчёта, и в PDF (там html-обёртка/стили другие,
-// сама таблица — эта же функция).
+// Разбивка по мойщикам в модалке — карточки, а не широкая таблица. На телефоне
+// таблица с колонкой на каждую услугу не помещается и обрезается сбоку, поэтому
+// суммы по услугам показаны чипами, которые переносятся на новую строку, а не
+// уезжают за край экрана. Нажатие на карточку мойщика раскрывает список его
+// записей за период (buildWasherDetailCardsHtml) — дата, машина, цена и из каких
+// услуг (с какой ценой и процентом) сложилась зарплата именно за эту запись.
+function buildWasherCardsHtml(r, mutedColor) {
+  const muted = mutedColor || "var(--muted)";
+  const cards = r.washer_breakdown.map((w, idx) => {
+    const chips = (w.overrides || [])
+      .map(o => `<span class="wc-chip">${escapeHtml(o.name)} <b>${o.percent}%</b> · ${fmt(o.amount)}</span>`)
+      .join("");
+    const rowId = `washerDetail-${idx}`;
+    return `
+      <div class="washer-card">
+        <div class="washer-card-head" onclick="toggleWasherDetail('${rowId}', this)">
+          <span class="wc-name">${escapeHtml(w.name)} <span class="wc-arrow">▾</span></span>
+          <span class="wc-total">${fmt(w.salary)}</span>
+        </div>
+        <div class="wc-meta">${w.cars_count} машин · выручка ${fmt(w.revenue)}</div>
+        ${chips ? `<div class="wc-chips">${chips}</div>` : ""}
+        <div class="wc-detail" id="${rowId}" style="display:none;">
+          ${buildWasherDetailCardsHtml(w, muted)}
+        </div>
+      </div>
+    `;
+  }).join("");
+  return `
+    <div class="washer-cards">
+      ${cards || `<div style="color:${muted};font-size:13px;padding:12px 0;">Записей нет</div>`}
+    </div>
+    ${r.washer_breakdown.length ? `
+      <div class="washer-total-row"><span>Итого зарплата мойщикам</span><span>${fmt(r.washer_total)}</span></div>
+      <div style="color:${muted};font-size:11px;margin-top:6px;margin-bottom:10px;">
+        Процент — свой у каждой услуги (настраивается в разделе «Услуги»). Нажмите на мойщика, чтобы увидеть, какая запись что дала.
+      </div>
+    ` : ""}
+  `;
+}
+
+function buildWasherDetailCardsHtml(w, muted) {
+  const recs = w.records || [];
+  if (recs.length === 0) {
+    return `<div style="color:${muted};font-size:12px;padding:4px 0;">Нет записей</div>`;
+  }
+  return recs.map(rec => {
+    const items = (rec.items || []).map(it => `
+      <div class="wc-item"><span>${escapeHtml(it.name)}</span><span>${fmt(it.price)} × ${it.percent}% = ${fmt(it.amount)}</span></div>
+    `).join("");
+    return `
+      <div class="wc-record">
+        <div class="wc-record-head">
+          <span>${new Date(rec.service_date).toLocaleDateString("ru-RU")} · ${escapeHtml(rec.car_brand)} ${escapeHtml(rec.car_number)}</span>
+          <span>${fmt(rec.price)}</span>
+        </div>
+        <div class="wc-record-items">${items || `<div class="wc-item"><span>—</span></div>`}</div>
+        <div class="wc-record-total">ЗП за запись: ${fmt(rec.salary)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function toggleWasherDetail(rowId, headEl) {
+  const el = document.getElementById(rowId);
+  if (!el) return;
+  const opening = el.style.display === "none";
+  el.style.display = opening ? "flex" : "none";
+  const arrow = headEl && headEl.querySelector(".wc-arrow");
+  if (arrow) arrow.textContent = opening ? "▴" : "▾";
+}
+
+// Таблица для PDF — там страница статична (печатается через диалог браузера),
+// карточки с раскрытием там не нужны, а широкая таблица на листе A4 помещается
+// нормально. Детали по записям в PDF не нужны — это сводка для печати.
 function buildWasherTableHtml(r, mutedColor) {
   const muted = mutedColor || "var(--muted)";
   const cols = r.override_columns || [];
   const headExtra = cols.map(c => `<th>${escapeHtml(c.name)} (${c.percent}%)</th>`).join("");
+  const totalCols = 4 + cols.length;
   const rows = r.washer_breakdown.map(w => {
     const cells = cols.map(c => {
       const found = (w.overrides || []).find(o => o.name === c.name && o.percent === c.percent);
@@ -1280,18 +1349,15 @@ function buildWasherTableHtml(r, mutedColor) {
         <td>${w.cars_count}</td>
         <td>${fmt(w.revenue)}</td>
         ${cells}
-        <td>${fmt(w.base_salary)}</td>
         <td><b>${fmt(w.salary)}</b></td>
       </tr>
     `;
   }).join("");
-  const totalCols = 5 + cols.length; // Мойщик+Машин+Выручка + колонки услуг + ЗП(общий) + Итого
   return `
     <table class="washer-table">
       <thead><tr>
         <th>Мойщик</th><th>Машин</th><th>Выручка</th>
         ${headExtra}
-        <th>ЗП по общим услугам (${r.washer_percent}%)</th>
         <th>Итого ЗП</th>
       </tr></thead>
       <tbody>${rows || `<tr><td colspan="${totalCols}" style="color:${muted};">Записей нет</td></tr>`}</tbody>
@@ -1299,7 +1365,7 @@ function buildWasherTableHtml(r, mutedColor) {
     </table>
     ${cols.length ? `
       <div style="color:${muted};font-size:11px;margin-top:-8px;margin-bottom:10px;">
-        Колонки с услугами — их личный % мойщику (настраивается в разделе «Услуги»). «ЗП по общим услугам» — оставшаяся часть суммы по общему проценту.
+        Каждая колонка — отдельная услуга со своим процентом (настраивается в разделе «Услуги»). Проценты не совпадают у похожих услуг, если заданы по-разному в каталоге.
       </div>
     ` : ""}
   `;
@@ -1318,7 +1384,7 @@ async function loadReport() {
     lastReportData = r;
     lastReportPeriod = from === to ? from : `${from} — ${to}`;
 
-    const washerTableHtml = buildWasherTableHtml(r);
+    const washerCardsHtml = buildWasherCardsHtml(r);
 
     const expenseRows = (r.expenses || []).map(e => `
       <tr>
@@ -1341,7 +1407,7 @@ async function loadReport() {
         <div class="report-kpi"><div class="rk-label">Расходы</div><div class="rk-value" style="color:var(--danger);">−${fmt(r.total_expenses)}</div></div>
       </div>
 
-      ${washerTableHtml}
+      ${washerCardsHtml}
 
       ${(r.expenses || []).length > 0 ? `
         <table class="washer-table">

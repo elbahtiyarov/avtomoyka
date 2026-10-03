@@ -51,7 +51,7 @@ router.get("/shift", async (req, res, next) => {
     // общий процент). Процент берётся из ТЕКУЩЕГО каталога услуг (как и общий
     // washer_percent — он тоже не замораживается на момент записи).
     const { rows: recordRows } = await pool.query(
-      `SELECT id, price, COALESCE(NULLIF(received_by, ''), '—') AS washer_name
+      `SELECT id, price, service_date, car_brand, car_number, COALESCE(NULLIF(received_by, ''), '—') AS washer_name
        FROM records ${where}`,
       dateParams
     );
@@ -78,10 +78,14 @@ router.get("/shift", async (req, res, next) => {
     const { rows: settingsRows } = await pool.query("SELECT * FROM payroll_settings WHERE id = 1");
     const settings = settingsRows[0];
 
-    // Зарплата мойщика по каждой записи: услуги с личным % (например, химчистка — 40%)
-    // считаются по своей цене этим процентом, а остаток суммы записи — общим % (по
-    // умолчанию из payroll_settings). Так итог не "плывёт" при скидках/бонусах —
-    // они уменьшают именно "остаток", а не переопределённые услуги.
+    // Зарплата мойщика по каждой записи: КАЖДАЯ услуга считается по своей цене и
+    // своему проценту — личному (washer_percent_override), если он задан именно
+    // у этой услуги в каталоге, иначе по общему проценту. Раньше все услуги без
+    // личного % сваливались в одну общую сумму "ЗП по общим услугам" — из-за этого
+    // было не видно, что, например, у "Химчистка полная" процент не задан, хотя у
+    // "Химчистка сидений" задан 40% (разные строки в каталоге услуг — процент не
+    // "наследуется" по похожему названию). Теперь каждая услуга — отдельная
+    // видимая колонка со своим процентом, ничего не скрыто.
     const servicesByRecord = new Map();
     for (const rs of recServiceRows) {
       if (!servicesByRecord.has(rs.record_id)) servicesByRecord.set(rs.record_id, []);
@@ -89,53 +93,80 @@ router.get("/shift", async (req, res, next) => {
     }
     const globalPercent = Number(settings.washer_percent);
     const salaryByWasher = new Map();
-    const baseSalaryByWasher = new Map(); // только часть по общему %, без переопределённых услуг
-    // Разбивка "из них по своему %" — чтобы в отчёте было видно, откуда взялась
-    // сумма, если она отличается от прямого умножения выручки на общий процент.
-    // Ключ: мойщик||название услуги||процент — суммируем по всем записям периода.
-    const overrideBreakdownByWasher = new Map();
+    // Разбивка "сколько по какой услуге" — ключ: мойщик||название услуги||процент,
+    // суммируем по всем записям периода, чтобы построить колонки отчёта.
+    const serviceBreakdownByWasher = new Map();
     // Список отдельных колонок (услуга+процент), которые встретились хоть у кого-то
     // за период — чтобы построить одинаковую таблицу для всех мойщиков.
-    const overrideColumnsSeen = new Map(); // key "название||процент" -> {name, percent}
+    const serviceColumnsSeen = new Map(); // key "название||процент" -> {name, percent}
+    // Детали по каждой записи — чтобы в отчёте можно было раскрыть колонку и
+    // посмотреть, какая именно машина/дата дала эту сумму (а не верить цифре
+    // на слово, когда она кажется подозрительной).
+    const recordDetailsByWasher = new Map();
+
+    function addServiceAmount(washerName, svcName, percent, amount) {
+      const key = `${washerName}||${svcName}||${percent}`;
+      const prev = serviceBreakdownByWasher.get(key) || { washer: washerName, name: svcName, percent, amount: 0 };
+      prev.amount += amount;
+      serviceBreakdownByWasher.set(key, prev);
+      serviceColumnsSeen.set(`${svcName}||${percent}`, { name: svcName, percent });
+    }
+
     for (const r of recordRows) {
       const price = Number(r.price);
       const svcList = servicesByRecord.get(r.id) || [];
-      const overridden = svcList.filter(s => s.washer_percent_override != null);
-      const overriddenSum = overridden.reduce((sum, s) => sum + Number(s.service_price), 0);
-      const overriddenSalary = overridden.reduce(
-        (sum, s) => sum + Number(s.service_price) * (Number(s.washer_percent_override) / 100), 0
-      );
-      const remaining = Math.max(0, price - overriddenSum);
-      const remainingSalary = remaining * (globalPercent / 100);
-      const recordSalary = overriddenSalary + remainingSalary;
-      salaryByWasher.set(r.washer_name, (salaryByWasher.get(r.washer_name) || 0) + recordSalary);
-      baseSalaryByWasher.set(r.washer_name, (baseSalaryByWasher.get(r.washer_name) || 0) + remainingSalary);
+      const svcSum = svcList.reduce((sum, s) => sum + Number(s.service_price), 0);
+      let recordSalary = 0;
+      const items = [];
 
-      for (const s of overridden) {
+      for (const s of svcList) {
         const svcName = s.service_name || "Услуга";
-        const percent = Number(s.washer_percent_override);
-        const key = `${r.washer_name}||${svcName}||${percent}`;
-        const prev = overrideBreakdownByWasher.get(key) || {
-          washer: r.washer_name, name: svcName, percent, amount: 0,
-        };
-        prev.amount += Number(s.service_price) * (percent / 100);
-        overrideBreakdownByWasher.set(key, prev);
-        overrideColumnsSeen.set(`${svcName}||${percent}`, { name: svcName, percent });
+        const percent = s.washer_percent_override != null ? Number(s.washer_percent_override) : globalPercent;
+        const amount = Number(s.service_price) * (percent / 100);
+        recordSalary += amount;
+        addServiceAmount(r.washer_name, svcName, percent, amount);
+        items.push({ name: svcName, price: Number(s.service_price), percent, amount: Math.round(amount * 100) / 100 });
       }
+
+      // Если итоговая цена записи вручную отличается от суммы цен выбранных услуг
+      // (скидка/наценка в поле "Цена") — на разницу начисляем зарплату по общему
+      // проценту отдельной видимой строкой-услугой, а не молча растворяем её внутри
+      // какой-то из обычных колонок.
+      const leftover = price - svcSum;
+      if (Math.round(leftover * 100) !== 0) {
+        const leftoverSalary = leftover * (globalPercent / 100);
+        recordSalary += leftoverSalary;
+        addServiceAmount(r.washer_name, "Корректировка цены (скидка/наценка)", globalPercent, leftoverSalary);
+        items.push({ name: "Корректировка цены (скидка/наценка)", price: Math.round(leftover * 100) / 100, percent: globalPercent, amount: Math.round(leftoverSalary * 100) / 100 });
+      }
+
+      salaryByWasher.set(r.washer_name, (salaryByWasher.get(r.washer_name) || 0) + recordSalary);
+      if (!recordDetailsByWasher.has(r.washer_name)) recordDetailsByWasher.set(r.washer_name, []);
+      recordDetailsByWasher.get(r.washer_name).push({
+        service_date: r.service_date,
+        car_brand: r.car_brand,
+        car_number: r.car_number,
+        price,
+        items,
+        salary: Math.round(recordSalary * 100) / 100,
+      });
     }
 
-    const overrideColumns = [...overrideColumnsSeen.values()];
+    const overrideColumns = [...serviceColumnsSeen.values()];
     const washerBreakdown = byWasher.map(w => {
-      const overrides = [...overrideBreakdownByWasher.values()]
+      const overrides = [...serviceBreakdownByWasher.values()]
         .filter(o => o.washer === w.name)
         .map(o => ({ name: o.name, percent: o.percent, amount: Math.round(o.amount * 100) / 100 }));
+      const records = (recordDetailsByWasher.get(w.name) || [])
+        .slice()
+        .sort((a, b) => new Date(a.service_date) - new Date(b.service_date));
       return {
         name: w.name,
         cars_count: Number(w.cars_count),
         revenue: Number(w.revenue),
-        base_salary: Math.round((baseSalaryByWasher.get(w.name) || 0) * 100) / 100,
         salary: Math.round((salaryByWasher.get(w.name) || 0) * 100) / 100,
         overrides,
+        records,
       };
     });
     const washerTotal = Math.round(washerBreakdown.reduce((sum, w) => sum + w.salary, 0) * 100) / 100;

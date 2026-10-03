@@ -169,6 +169,9 @@ tr:hover .del-btn{opacity:1;}
 
 .modal-overlay{display:none;position:fixed;inset:0;z-index:55;background:rgba(18,38,66,.55);align-items:flex-end;justify-content:center;}
 .modal{width:100%;max-width:440px;background:var(--surface);border-radius:18px 18px 0 0;padding:20px;max-height:92vh;overflow-y:auto;}
+/* Отчёт по кассе — карточки с чипами по мойщикам дышат свободнее на чуть более
+   широкой модалке, чем остальные формы (им и 440px достаточно). */
+#reportOverlay .modal{max-width:560px;}
 .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .modal-title{font-weight:700;font-size:16px;color:var(--blue-deep);}
 .close-btn{background:transparent;color:var(--muted);font-size:18px;}
@@ -303,10 +306,34 @@ tr:hover .del-btn{opacity:1;}
 .report-highlight{background:linear-gradient(135deg, var(--blue), var(--blue-deep));color:#fff;border-radius:12px;padding:14px;margin-top:10px;}
 .report-highlight .rk-label{color:rgba(255,255,255,.8);font-size:12px;}
 .report-highlight .rk-value{color:#fff;font-size:20px;font-weight:700;}
+/* Таблица — используется только в печатном PDF (на листе A4 колонки помещаются) */
 .washer-table{width:100%;font-size:13px;margin-top:10px;border-collapse:collapse;}
 .washer-table th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;padding:6px 4px;border-bottom:1px solid var(--border);}
 .washer-table td{padding:6px 4px;border-bottom:1px solid var(--border);}
 .washer-table tfoot td{font-weight:700;color:var(--blue-deep);border-bottom:none;padding-top:8px;}
+
+/* Карточки по мойщикам в модалке отчёта — вместо широкой таблицы, чтобы на
+   телефоне ничего не обрезалось сбоку. Суммы по услугам — чипы, переносятся
+   на новую строку вместо горизонтальной прокрутки. */
+.washer-cards{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.washer-card{border:1px solid var(--border);border-radius:10px;background:var(--surface2);overflow:hidden;}
+.washer-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;}
+.washer-card-head:hover{background:var(--surface);}
+.wc-name{font-weight:700;font-size:14px;}
+.wc-arrow{color:var(--muted);font-size:11px;font-weight:400;margin-left:2px;}
+.wc-total{font-weight:700;color:var(--blue-deep);font-size:14px;white-space:nowrap;}
+.wc-meta{padding:0 12px 8px;color:var(--muted);font-size:12px;}
+.wc-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 10px;}
+.wc-chip{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:4px 8px;font-size:11px;white-space:nowrap;color:var(--muted);}
+.wc-chip b{color:var(--blue-deep);font-weight:700;}
+.wc-detail{border-top:1px solid var(--border);padding:10px 12px;flex-direction:column;gap:8px;background:var(--surface);}
+.wc-record{border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--surface2);}
+.wc-record-head{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;margin-bottom:5px;}
+.wc-record-items{display:flex;flex-direction:column;gap:3px;margin-bottom:5px;}
+.wc-item{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);}
+.wc-item span:last-child{white-space:nowrap;color:var(--text);text-align:right;}
+.wc-record-total{text-align:right;font-size:12px;font-weight:700;color:var(--blue-deep);}
+.washer-total-row{display:flex;justify-content:space-between;align-items:center;padding:10px 4px 0;margin-top:4px;border-top:2px solid var(--border);font-weight:700;color:var(--blue-deep);font-size:14px;}
 
 /* Модалка услуг: строка с инлайн-редактированием */
 .svc-edit-row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);}
