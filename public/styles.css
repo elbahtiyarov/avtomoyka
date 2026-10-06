@@ -488,7 +488,7 @@ html.force-mobile .modal{border-radius:18px 18px 0 0 !important;}
 html.force-mobile .fab-add-btn{right:20px !important;bottom:calc(20px + env(safe-area-inset-bottom)) !important;}
 
 /* Сканирование госномера по фото (бесплатное распознавание прямо на устройстве) */
-.plate-scan{position:sticky;top:-20px;z-index:5;background:var(--surface);margin:-20px -20px 12px;padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
+.plate-scan{position:sticky;top:-20px;z-index:5;background:var(--surface);margin:0 -20px 12px;padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
 .plate-scan-btn{width:100%;background:var(--blue-soft);color:var(--blue-deep);font-weight:600;font-size:15px;padding:12px;border-radius:8px;text-align:center;}
 .plate-scan-btn:disabled{opacity:.6;cursor:default;}
 .plate-scan-status{font-size:12px;color:var(--muted);min-height:0;}
@@ -497,3 +497,88 @@ html.force-mobile .fab-add-btn{right:20px !important;bottom:calc(20px + env(safe
 .plate-scan-status.warn{color:#b26a00;font-weight:600;}
 .plate-scan-status.err{color:var(--danger);}
 .plate-scan-status img{display:block;max-width:100%;max-height:70px;border-radius:6px;margin-top:6px;border:1px solid var(--border);}
+
+/* ===== Адаптация под все телефоны и браузеры (iPhone Safari, Chrome, Samsung, Firefox) ===== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+img,canvas,video{max-width:100%;}
+
+/* Старые iOS (до 14.5) не знают inset:0 — дублируем явными сторонами */
+.modal-overlay,.sidebar-backdrop{top:0;right:0;bottom:0;left:0;}
+
+/* 100vh на iPhone включает адресную строку Safari и обрезает низ экрана —
+   где поддерживается, берём динамическую высоту (dvh) */
+@supports (height:100dvh){
+  .layout{min-height:100dvh;}
+  .sidebar{height:100dvh;}
+  .modal{max-height:92dvh;}
+}
+
+/* Окна: плавная прокрутка внутри на iOS, без «протекания» на страницу под ними,
+   и отступ снизу под полосу жестов iPhone, чтобы кнопка «Сохранить» не пряталась */
+.modal{
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom));
+}
+.sidebar{padding-bottom:calc(16px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;}
+@media(min-width:768px){ .modal{padding-bottom:20px;} }
+
+/* Поля: одинаковый вид в Safari/Chrome/Firefox, дата и выпадающие списки без «родных» искажений iOS */
+.field input:not([type="checkbox"]):not([type="radio"]),.field select,.filter-field input:not([type="checkbox"]):not([type="radio"]){
+  -webkit-appearance:none;appearance:none;border-radius:9px;min-height:40px;
+}
+.field select{
+  padding-right:32px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+}
+input[type="date"]{min-height:40px;line-height:normal;text-align:left;}
+input[type="date"]::-webkit-date-and-time-value{text-align:left;min-height:1.2em;}
+input[type="number"]{-moz-appearance:textfield;}
+
+/* Кнопки: нормальная зона нажатия (≥44px по рекомендации Apple) и без задержки/двойного тапа */
+button,.nav-item,.service-chip,.plate-scan-btn{touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+.save-btn,.plate-scan-btn{min-height:44px;}
+.close-btn,.hamburger-btn{min-width:44px;min-height:44px;}
+
+/* Скан номера: на узких экранах — кнопка и превью не вылезают за края, на iPhone — отступ под чёлку у боковых краёв */
+.plate-scan-btn{-webkit-appearance:none;appearance:none;}
+.plate-scan-status{overflow-wrap:anywhere;}
+.plate-scan-status img{height:auto;object-fit:contain;}
+
+/* Узкие телефоны (iPhone SE, 320–375px) */
+@media(max-width:380px){
+  .modal{padding-left:14px;padding-right:14px;}
+  .plate-scan{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px;}
+  .field-row{gap:6px;}
+  .modal-title{font-size:15px;}
+}
+
+/* Горизонтальное положение телефона: окно не выше экрана, чёлка по бокам */
+@media(max-height:480px) and (orientation:landscape){
+  .modal{max-height:100vh;border-radius:0;}
+  .plate-scan{position:static;}
+}
+@supports (padding:max(0px)){
+  .main-inner,.mobile-bar{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));}
+}
+.field input[type="radio"],.field input[type="checkbox"]{padding:0;}
+.payment-method-row input[type="radio"]{width:18px;height:18px;min-width:18px;min-height:18px;}
+/* Закрытое боковое меню не должно «просвечивать» тенью у левого края экрана */
+@media(max-width:767px){ .sidebar:not(.mobile-open){box-shadow:none !important;visibility:hidden;transition:transform .25s ease,visibility 0s .25s;} .sidebar.mobile-open{visibility:visible;transition:transform .25s ease;} }
+html.force-mobile .sidebar:not(.mobile-open){box-shadow:none !important;}
+
+/* Шапка окна («Новая запись» + крестик) закреплена сверху: закрыть можно в любой момент прокрутки */
+.modal{--mpad:20px;--mh:56px;}
+.modal-header{
+  position:sticky;top:calc(-1 * var(--mpad));z-index:6;
+  margin:calc(-1 * var(--mpad)) calc(-1 * var(--mpad)) 8px;
+  padding:0 var(--mpad);min-height:var(--mh);
+  background:var(--surface);
+}
+.modal-header .close-btn{margin-right:-10px;font-size:22px;}
+.plate-scan{top:calc(var(--mh) - var(--mpad));margin-top:0;}
+@media(max-width:380px){ .modal{--mpad:14px;} }
+@media(max-width:380px){ .modal{padding-top:14px;} }
