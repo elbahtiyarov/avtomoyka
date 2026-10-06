@@ -885,6 +885,7 @@ function openForm(recordId) {
   document.getElementById("newServicePrice").value = "";
   document.getElementById("newBayName").value = "";
   document.getElementById("newWasherName").value = "";
+  document.getElementById("plateScanStatus").textContent = "";
   document.getElementById("fClientPhone").value = "";
   document.getElementById("fClientPhone").style.display = "";
   document.getElementById("clientCard").style.display = "none";
@@ -1018,6 +1019,341 @@ async function addService() {
     document.getElementById("newServicePrice").value = "";
   } catch (err) {
     alert("Не удалось добавить услугу: " + err.message);
+  }
+}
+
+// --- Сканирование госномера по фото ---
+// Бесплатное распознавание прямо на устройстве (Tesseract.js): фото никуда не
+// отправляется и нигде не сохраняется, текст читается в самом браузере. Умеет только
+// номер — марку машины по фото так не определить, её выбирают вручную. Тяжёлые файлы
+// распознавания подгружаются только при первом сканировании (и дальше кэшируются).
+let ocrWorker = null;
+let ocrWorkerPromise = null;
+let ocrIdleTimer = null;
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("Не удалось загрузить модуль распознавания"));
+    document.head.appendChild(s);
+  });
+}
+
+async function getOcrWorker() {
+  clearTimeout(ocrIdleTimer);
+  if (ocrWorker) return ocrWorker;
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = (async () => {
+      if (!window.Tesseract) await loadScriptOnce("/vendor/tesseract/tesseract.min.js");
+      const worker = await Tesseract.createWorker("eng", 1, {
+        workerPath: "/vendor/tesseract/worker.min.js",
+        corePath: "/vendor/tesseract-core",
+        langPath: "/vendor/tessdata",
+        gzip: true,
+        workerBlobURL: false,
+      });
+      ocrWorker = worker; // режим чтения задаётся перед каждым проходом (см. onPlateFileChosen)
+      return worker;
+    })().catch(err => {
+      ocrWorkerPromise = null;
+      throw err;
+    });
+  }
+  return ocrWorkerPromise;
+}
+
+// Освобождаем память телефона, если сканер давно не нужен
+function scheduleOcrShutdown() {
+  clearTimeout(ocrIdleTimer);
+  ocrIdleTimer = setTimeout(async () => {
+    const w = ocrWorker;
+    ocrWorker = null;
+    ocrWorkerPromise = null;
+    if (w) { try { await w.terminate(); } catch (e) { /* уже закрыт */ } }
+  }, 2 * 60 * 1000);
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Не удалось открыть фото")); };
+    img.src = url;
+  });
+}
+
+// Растягиваем контраст (по яркости обрезаем 2% самых тёмных и светлых пикселей).
+// Цвет НЕ убираем: на «чистом сером» кадре Tesseract заметно хуже читает номер
+// (проверено на тестовых снимках), а на цветном — стабильно читает.
+function enhanceCanvas(canvas) {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) {
+    hist[(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0]++;
+  }
+  const total = canvas.width * canvas.height;
+  let acc = 0, lo = 0, hi = 255;
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= total * 0.02) { lo = v; break; } }
+  acc = 0;
+  for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= total * 0.02) { hi = v; break; } }
+  if (hi - lo < 30) return; // кадр почти однотонный — растягивать нечего
+  const k = 255 / (hi - lo);
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = Math.max(0, Math.min(255, (d[i] - lo) * k));
+    d[i + 1] = Math.max(0, Math.min(255, (d[i + 1] - lo) * k));
+    d[i + 2] = Math.max(0, Math.min(255, (d[i + 2] - lo) * k));
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// Медиана из 9 значений (сеть сравнений — быстро, без сортировки массива)
+function med9(a0, a1, a2, a3, a4, a5, a6, a7, a8) {
+  let t;
+  const s = (x, y) => (x > y ? [y, x] : [x, y]);
+  [a1, a2] = s(a1, a2); [a4, a5] = s(a4, a5); [a7, a8] = s(a7, a8);
+  [a0, a1] = s(a0, a1); [a3, a4] = s(a3, a4); [a6, a7] = s(a6, a7);
+  [a1, a2] = s(a1, a2); [a4, a5] = s(a4, a5); [a7, a8] = s(a7, a8);
+  [a0, a3] = s(a0, a3); [a5, a8] = s(a5, a8); [a4, a7] = s(a4, a7);
+  [a3, a6] = s(a3, a6); [a1, a4] = s(a1, a4); [a2, a5] = s(a2, a5);
+  [a4, a7] = s(a4, a7); [a4, a2] = s(a4, a2); [a6, a4] = s(a6, a4);
+  [a4, a2] = s(a4, a2);
+  return a4;
+}
+
+// Лёгкое «медианное» сглаживание 3×3: убирает точечный шум (тёмные кадры, зерно),
+// не размывая штрихи символов так, как это делает обычное размытие
+function denoiseCanvas(canvas) {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const w = canvas.width, h = canvas.height;
+  const img = ctx.getImageData(0, 0, w, h);
+  const s = img.data;
+  const o = new Uint8ClampedArray(s.length);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - 1), y1 = Math.min(h - 1, y + 1);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - 1), x1 = Math.min(w - 1, x + 1);
+      const i = (y * w + x) * 4;
+      for (let k = 0; k < 3; k++) {
+        o[i + k] = med9(
+          s[(y0 * w + x0) * 4 + k], s[(y0 * w + x) * 4 + k], s[(y0 * w + x1) * 4 + k],
+          s[(y * w + x0) * 4 + k], s[i + k], s[(y * w + x1) * 4 + k],
+          s[(y1 * w + x0) * 4 + k], s[(y1 * w + x) * 4 + k], s[(y1 * w + x1) * 4 + k]
+        );
+      }
+      o[i + 3] = 255;
+    }
+  }
+  img.data.set(o);
+  ctx.putImageData(img, 0, 0);
+}
+
+// Вырезает рамку {x, y, w, h} из кадра ПЛОТНО (с минимальным запасом: лишний фон
+// вокруг таблички заметно мешает OCR) и приводит высоту к targetH. Для строки номера
+// хорошо работает около 200 px по высоте. Обработку (шум/контраст) делает finishCrop.
+function cropBoxRaw(source, box, targetH) {
+  const mx = box.w * 0.02 + 3, my = box.h * 0.06 + 3;
+  const sx = Math.max(0, Math.round(box.x - mx)), sy = Math.max(0, Math.round(box.y - my));
+  const sw = Math.min(source.width - sx, Math.round(box.w + 2 * mx));
+  const sh = Math.min(source.height - sy, Math.round(box.h + 2 * my));
+  const k = targetH / sh;
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(sw * k));
+  c.height = Math.max(1, Math.round(sh * k));
+  c.getContext("2d").drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+
+function finishCrop(canvas) {
+  denoiseCanvas(canvas);
+  enhanceCanvas(canvas);
+  return canvas;
+}
+
+// Угол наклона строки номера (в градусах, -10…+10): перебираем углы и берём тот, при
+// котором тёмные штрихи лучше всего «выстраиваются» по строкам (резкий профиль по
+// вертикали). Если выигрыш у нулевого угла незаметный — считаем, что наклона нет.
+function estimateTiltDeg(canvas) {
+  const w = 260, h = Math.max(24, Math.round(canvas.height * (260 / canvas.width)));
+  const small = document.createElement("canvas");
+  small.width = w; small.height = h;
+  const sctx = small.getContext("2d", { willReadFrequently: true });
+  sctx.drawImage(canvas, 0, 0, w, h);
+  const px = sctx.getImageData(0, 0, w, h).data;
+  const lum = new Float32Array(w * h);
+  let mean = 0;
+  for (let i = 0, j = 0; i < px.length; i += 4, j++) { lum[j] = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]; mean += lum[j]; }
+  mean /= lum.length;
+  const mask = document.createElement("canvas");
+  mask.width = w; mask.height = h;
+  const mctx = mask.getContext("2d", { willReadFrequently: true });
+  const md = mctx.createImageData(w, h);
+  for (let j = 0, i = 0; j < lum.length; j++, i += 4) {
+    const v = lum[j] < mean * 0.7 ? 0 : 255; // тёмное — штрихи символов и рамка
+    md.data[i] = md.data[i + 1] = md.data[i + 2] = v; md.data[i + 3] = 255;
+  }
+  mctx.putImageData(md, 0, 0);
+  const work = document.createElement("canvas");
+  work.width = w; work.height = h;
+  const wctx = work.getContext("2d", { willReadFrequently: true });
+  const score = (deg) => {
+    wctx.fillStyle = "#fff"; wctx.fillRect(0, 0, w, h);
+    wctx.save();
+    wctx.translate(w / 2, h / 2); wctx.rotate((deg * Math.PI) / 180); wctx.translate(-w / 2, -h / 2);
+    wctx.drawImage(mask, 0, 0);
+    wctx.restore();
+    const d = wctx.getImageData(0, 0, w, h).data;
+    let prev = 0, sc = 0;
+    for (let y = 0; y < h; y++) {
+      let row = 0;
+      for (let x = 0; x < w; x++) if (d[(y * w + x) * 4] < 128) row++;
+      if (y > 0) sc += (row - prev) * (row - prev);
+      prev = row;
+    }
+    return sc;
+  };
+  const base = score(0);
+  let bestDeg = 0, best = base;
+  for (let deg = -10; deg <= 10; deg += 1) {
+    if (deg === 0) continue;
+    const sc = score(deg);
+    if (sc > best) { best = sc; bestDeg = deg; }
+  }
+  return best > base * 1.08 ? bestDeg : 0;
+}
+
+// Поворачивает вырезку на deg градусов (выравнивает наклон), фон по углам — цвета краёв
+function rotateCrop(canvas, deg) {
+  const c = document.createElement("canvas");
+  c.width = canvas.width; c.height = canvas.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  const e = canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, 1, 1).data;
+  ctx.fillStyle = `rgb(${e[0]},${e[1]},${e[2]})`;
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.translate(c.width / 2, c.height / 2);
+  ctx.rotate((deg * Math.PI) / 180);
+  ctx.translate(-c.width / 2, -c.height / 2);
+  ctx.drawImage(canvas, 0, 0);
+  return c;
+}
+
+// Уменьшенный серый кадр для поиска таблички
+function toSmallGray(source, maxW) {
+  const k = Math.min(1, maxW / source.width);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(source.width * k));
+  c.height = Math.max(1, Math.round(source.height * k));
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, c.width, c.height);
+  const px = ctx.getImageData(0, 0, c.width, c.height).data;
+  const gray = new Uint8Array(c.width * c.height);
+  for (let i = 0, j = 0; i < px.length; i += 4, j++) {
+    gray[j] = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) | 0;
+  }
+  return { gray, w: c.width, h: c.height, k };
+}
+
+async function onPlateFileChosen(input) {
+  const file = input.files && input.files[0];
+  input.value = ""; // чтобы можно было снова выбрать тот же снимок
+  if (!file) return;
+
+  const btn = document.getElementById("plateScanBtn");
+  const statusEl = document.getElementById("plateScanStatus");
+  const setStatus = (text, cls) => { statusEl.className = "plate-scan-status" + (cls ? " " + cls : ""); statusEl.textContent = text; };
+
+  btn.disabled = true;
+  try {
+    setStatus("Готовлю фото…");
+    const img = await loadImageFromFile(file);
+    const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+    const full = document.createElement("canvas");
+    full.width = Math.round(img.naturalWidth * scale);
+    full.height = Math.round(img.naturalHeight * scale);
+    full.getContext("2d").drawImage(img, 0, 0, full.width, full.height);
+
+    setStatus("Загружаю распознавание… (в первый раз это занимает несколько секунд)");
+    const worker = await getOcrWorker();
+    const WL = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const texts = [];
+    const previews = []; // для каждого прочтения — вырезка, из которой оно получено (для сверки глазами)
+
+    // Шаг 1: находим на кадре места, похожие на табличку с номером, вырезаем каждое
+    // и читаем как одну строку — так читается заметно точнее, чем весь кадр целиком.
+    setStatus("Ищу номер на фото…");
+    const small = toSmallGray(full, 640);
+    const boxes = PlateParser.findPlateBoxes(small.gray, small.w, small.h, 3)
+      .map(b => ({ x: b.x / small.k, y: b.y / small.k, w: b.w / small.k, h: b.h / small.k }));
+    await worker.setParameters({ tessedit_char_whitelist: WL, tessedit_pageseg_mode: "7" });
+    for (let i = 0; i < boxes.length; i++) {
+      setStatus(`Читаю номер… (${i + 1} из ${boxes.length})`);
+      // Несколько вариантов одной и той же вырезки (разный масштаб, выровненный
+      // наклон) — номер, который совпал в разных прочтениях, надёжнее одного прочтения
+      const raw = cropBoxRaw(full, boxes[i], 200);
+      const variants = [finishCrop(cropBoxRaw(full, boxes[i], 200)), finishCrop(cropBoxRaw(full, boxes[i], 140))];
+      const tilt = estimateTiltDeg(raw);
+      if (Math.abs(tilt) >= 2) variants.push(finishCrop(rotateCrop(raw, tilt)));
+      for (const v of variants) {
+        const { data } = await worker.recognize(v);
+        texts.push(data.text || "");
+        previews.push(raw);
+      }
+    }
+
+    // Шаг 2: если уверенного совпадения нет — читаем ещё и кадр целиком (когда номер
+    // снят крупно, он сам занимает почти весь кадр и отдельно искать его не нужно)
+    let best = PlateParser.pickBest(texts);
+    if (!best || best.count < 2) {
+      setStatus("Читаю весь кадр…");
+      await worker.setParameters({ tessedit_char_whitelist: "", tessedit_pageseg_mode: "3" });
+      const whole = document.createElement("canvas");
+      whole.width = full.width; whole.height = full.height;
+      whole.getContext("2d").drawImage(full, 0, 0);
+      enhanceCanvas(whole);
+      const { data } = await worker.recognize(whole);
+      texts.push(data.text || "");
+      previews.push(null);
+      best = PlateParser.pickBest(texts);
+    }
+
+    if (!best) {
+      setStatus("Не удалось уверенно прочитать номер. Сфотографируйте номер крупнее и ровнее (без бликов) или введите вручную.", "err");
+      return;
+    }
+    const numberEl = document.getElementById("fNumber");
+    numberEl.value = best.plate;
+    numberEl.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // Уверенность: совпало ли прочтение в нескольких вариантах вырезки. Если нет —
+    // честно предупреждаем, что номер мог быть прочитан с ошибкой в символе.
+    if (best.count >= 2) {
+      setStatus(`Номер распознан: ${best.plate}. Сверьте с фото — если ошибка, поправьте вручную.`, "ok");
+    } else {
+      setStatus(`Номер прочитан неуверенно: ${best.plate}. Обязательно сверьте каждый символ с фото и поправьте вручную.`, "warn");
+    }
+    // Под результатом показываем саму вырезанную табличку (а если её не нашли —
+    // уменьшенный кадр), чтобы можно было сразу сверить символы глазами
+    const winner = texts.findIndex(t => { const r = PlateParser.parse(t); return r && r.plate === best.plate; });
+    const src = (winner >= 0 && previews[winner]) || full;
+    const thumb = document.createElement("canvas");
+    const k = Math.min(1, 360 / src.width);
+    thumb.width = Math.round(src.width * k);
+    thumb.height = Math.round(src.height * k);
+    thumb.getContext("2d").drawImage(src, 0, 0, thumb.width, thumb.height);
+    const im = document.createElement("img");
+    im.src = thumb.toDataURL("image/jpeg", 0.8);
+    im.alt = "Снимок номера";
+    statusEl.appendChild(im);
+  } catch (err) {
+    setStatus("Сканер не сработал: " + err.message + ". Введите номер вручную.", "err");
+  } finally {
+    btn.disabled = false;
+    scheduleOcrShutdown();
   }
 }
 

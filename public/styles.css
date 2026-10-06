@@ -486,3 +486,14 @@ html.force-mobile .kpi-grid{grid-template-columns:1fr !important;}
 html.force-mobile .modal-overlay{align-items:flex-end !important;}
 html.force-mobile .modal{border-radius:18px 18px 0 0 !important;}
 html.force-mobile .fab-add-btn{right:20px !important;bottom:calc(20px + env(safe-area-inset-bottom)) !important;}
+
+/* Сканирование госномера по фото (бесплатное распознавание прямо на устройстве) */
+.plate-scan{position:sticky;top:-20px;z-index:5;background:var(--surface);margin:-20px -20px 12px;padding:10px 20px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
+.plate-scan-btn{width:100%;background:var(--blue-soft);color:var(--blue-deep);font-weight:600;font-size:15px;padding:12px;border-radius:8px;text-align:center;}
+.plate-scan-btn:disabled{opacity:.6;cursor:default;}
+.plate-scan-status{font-size:12px;color:var(--muted);min-height:0;}
+.plate-scan-status:empty{display:none;}
+.plate-scan-status.ok{color:#1a7f4b;font-weight:600;}
+.plate-scan-status.warn{color:#b26a00;font-weight:600;}
+.plate-scan-status.err{color:var(--danger);}
+.plate-scan-status img{display:block;max-width:100%;max-height:70px;border-radius:6px;margin-top:6px;border:1px solid var(--border);}

@@ -27,6 +27,17 @@ app.use(express.json({ limit: "5mb" })); // лимит увеличен — по
 // Отдаём фронтенд из /public
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+// Бесплатное распознавание номера авто по фото (Tesseract.js) работает прямо в
+// браузере/телефоне. Все нужные файлы (скрипт, воркер, wasm-ядро и языковые
+// данные) раздаём с нашего же сервера из node_modules — без внешних CDN, поэтому
+// сканер не зависит от того, доступны ли сторонние сайты. Файлы не меняются между
+// версиями, поэтому браузер может надолго кэшировать их (скачиваются один раз).
+const nm = path.join(__dirname, "..", "node_modules");
+const vendorOpts = { maxAge: "30d", immutable: true };
+app.use("/vendor/tesseract", express.static(path.join(nm, "tesseract.js", "dist"), vendorOpts));
+app.use("/vendor/tesseract-core", express.static(path.join(nm, "tesseract.js-core"), vendorOpts));
+app.use("/vendor/tessdata", express.static(path.join(nm, "@tesseract.js-data", "eng", "4.0.0_best_int"), vendorOpts));
+
 app.use("/api/auth", authRouter);              // логин — без авторизации
 app.use("/api/records", requireAuth, recordsRouter);
 app.use("/api/expenses", requireAuth, expensesRouter);

@@ -40,6 +40,11 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
     return;
   }
+  // Файлы распознавания номера (/vendor/…) тяжёлые (несколько МБ) и не меняются —
+  // их кэширует сам браузер (HTTP-кэш), в кэш оболочки приложения не кладём
+  if (url.pathname.startsWith("/vendor/")) {
+    return;
+  }
 
   // Оболочка приложения: сеть в приоритете, кэш — только как резерв без связи
   event.respondWith(

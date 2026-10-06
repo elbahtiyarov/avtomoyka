@@ -182,6 +182,11 @@
       <button class="close-btn" onclick="closeForm()">✕</button>
     </div>
     <form id="recForm">
+      <div class="plate-scan">
+        <button type="button" class="plate-scan-btn" id="plateScanBtn" onclick="document.getElementById('plateScanInput').click()">📷 Сканировать номер по фото</button>
+        <input type="file" id="plateScanInput" accept="image/*" capture="environment" style="display:none;" onchange="onPlateFileChosen(this)">
+        <div class="plate-scan-status" id="plateScanStatus"></div>
+      </div>
       <div class="field-row">
         <div class="field"><label>Дата</label><input type="date" id="fDate" required></div>
         <div class="field"><label>Цена, ₸</label><input type="number" id="fPrice" min="0" required placeholder="0"></div>
@@ -473,6 +478,7 @@
   </div>
 </div>
 
+<script src="plate.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
