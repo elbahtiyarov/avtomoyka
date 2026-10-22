@@ -6,16 +6,35 @@ const { requireAdmin } = require("../middleware/auth");
 const { sendCode } = require("../services/notify");
 const { normalizePhone } = require("../utils/phone");
 
-// Список клиентов бонусной программы (поиск по имени/телефону: /clients?q=...)
+// Список клиентов бонусной программы (поиск по имени/телефону/номеру машины: /clients?q=...)
+// К каждому клиенту добавляем его машины (cars) — уникальные номера из его записей,
+// сначала те, что приезжали последними. Отдельной таблицы не нужно: берём из журнала.
 router.get("/", async (req, res, next) => {
   try {
     const { q } = req.query;
-    const { rows } = q && q.trim()
-      ? await pool.query(
-          "SELECT * FROM clients WHERE active = true AND (name ILIKE $1 OR phone ILIKE $1) ORDER BY visit_count DESC, name",
-          [`%${q.trim()}%`]
-        )
-      : await pool.query("SELECT * FROM clients WHERE active = true ORDER BY visit_count DESC, name");
+    const search = q && q.trim() ? `%${q.trim()}%` : null;
+    const { rows } = await pool.query(
+      `SELECT c.*,
+              COALESCE((
+                SELECT json_agg(json_build_object('number', t.car_number, 'brand', t.car_brand) ORDER BY t.last_date DESC)
+                FROM (
+                  SELECT DISTINCT ON (UPPER(REPLACE(r.car_number, ' ', '')))
+                         r.car_number, r.car_brand,
+                         MAX(r.service_date) OVER (PARTITION BY UPPER(REPLACE(r.car_number, ' ', ''))) AS last_date
+                  FROM records r
+                  WHERE r.client_id = c.id
+                  ORDER BY UPPER(REPLACE(r.car_number, ' ', '')), r.service_date DESC, r.id DESC
+                ) t
+              ), '[]'::json) AS cars
+       FROM clients c
+       WHERE c.active = true
+         AND ($1::text IS NULL
+              OR c.name ILIKE $1 OR c.phone ILIKE $1
+              OR EXISTS (SELECT 1 FROM records r2 WHERE r2.client_id = c.id
+                         AND REPLACE(r2.car_number, ' ', '') ILIKE REPLACE($1, ' ', '')))
+       ORDER BY c.visit_count DESC, c.name`,
+      [search]
+    );
     res.json(rows);
   } catch (err) {
     next(err);
@@ -57,6 +76,22 @@ router.post("/", async (req, res, next) => {
 router.put("/:id", requireAdmin, async (req, res, next) => {
   try {
     const { name, visit_count, points_balance, points_percent_override } = req.body;
+    // Телефон меняем, только если он передан (исправление ошибки при вводе). Записи в
+    // журнале привязаны к клиенту по id, поэтому вся история и баллы остаются при нём.
+    let newPhone = null;
+    if (req.body.phone != null) {
+      newPhone = normalizePhone(req.body.phone);
+      if (newPhone.length < 10 || newPhone.length > 15) {
+        return res.status(400).json({ error: "Проверьте номер телефона" });
+      }
+      const dup = await pool.query("SELECT id, name, active FROM clients WHERE phone = $1 AND id <> $2", [newPhone, req.params.id]);
+      if (dup.rows.length) {
+        const d = dup.rows[0];
+        return res.status(409).json({
+          error: `Этот номер уже есть у другого клиента${d.name ? ` («${d.name}»)` : ""}${d.active ? "" : " (скрытого из списка)"}. Укажите другой номер.`
+        });
+      }
+    }
     if (visit_count == null || visit_count < 0 || points_balance == null || points_balance < 0) {
       return res.status(400).json({ error: "Проверьте количество визитов и AquaCoin" });
     }
@@ -67,9 +102,11 @@ router.put("/:id", requireAdmin, async (req, res, next) => {
       return res.status(400).json({ error: "Проверьте личный процент AquaCoin" });
     }
     const { rows } = await pool.query(
-      `UPDATE clients SET name = $1, visit_count = $2, points_balance = $3, points_percent_override = $4 WHERE id = $5
+      `UPDATE clients SET name = $1, visit_count = $2, points_balance = $3, points_percent_override = $4,
+              phone = COALESCE($6, phone)
+       WHERE id = $5
        RETURNING *`,
-      [(name && name.trim()) || null, visit_count, points_balance, override, req.params.id]
+      [(name && name.trim()) || null, visit_count, points_balance, override, req.params.id, newPhone]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Клиент не найден" });
     res.json(rows[0]);

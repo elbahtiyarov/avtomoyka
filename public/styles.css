@@ -582,3 +582,11 @@ html.force-mobile .sidebar:not(.mobile-open){box-shadow:none !important;}
 .plate-scan{top:calc(var(--mh) - var(--mpad));margin-top:0;}
 @media(max-width:380px){ .modal{--mpad:14px;} }
 @media(max-width:380px){ .modal{padding-top:14px;} }
+
+/* Машины клиента в разделе «Клиенты» */
+.cr-cars{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+.cr-car{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;}
+.cr-car small{font-weight:400;color:var(--muted);font-size:11px;}
+.client-row-view{flex-wrap:wrap;gap:6px 12px;align-items:flex-start;}
+.client-row-view > div:first-child{min-width:0;flex:1 1 160px;}
+.client-edit-row input[type="tel"]{flex:1 1 140px;min-width:120px;}

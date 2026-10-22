@@ -1409,12 +1409,14 @@ async function loadClientsList() {
           <div>
             <div class="cr-name">${escapeHtml(c.name || "Без имени")}${isVip ? ` <span class="vip-badge">⭐ VIP ${c.points_percent_override}%</span>` : ""}</div>
             <div class="cr-phone">+${escapeHtml(c.phone)}</div>
+            ${(c.cars && c.cars.length) ? `<div class="cr-cars">${c.cars.map(car => `<span class="cr-car" title="${escapeHtml(car.brand || "")}">🚗 ${escapeHtml(car.number)}${car.brand ? ` <small>${escapeHtml(car.brand)}</small>` : ""}</span>`).join("")}</div>` : ""}
           </div>
           <div class="cr-stats">${c.visit_count} визитов · ${fmt(c.points_balance)} AquaCoin</div>
         </div>
         ${isAdmin ? `
           <div class="client-edit-row">
             <input type="text" id="clName-${c.id}" value="${escapeHtml(c.name || "")}" placeholder="Имя">
+            <input type="tel" inputmode="tel" id="clPhone-${c.id}" value="+${escapeHtml(c.phone)}" placeholder="Телефон" title="Номер телефона — можно исправить, если ошиблись при вводе">
             <input type="number" id="clVisits-${c.id}" value="${c.visit_count}" min="0">
             <input type="number" id="clPoints-${c.id}" value="${c.points_balance}" min="0">
             <input type="number" id="clVipPercent-${c.id}" value="${c.points_percent_override != null ? c.points_percent_override : ""}" placeholder="Обычный %" min="0" step="0.5" title="Личный % AquaCoin — пусто или как у всех означает обычный тариф, без VIP">
@@ -1442,12 +1444,13 @@ async function deleteClient(id) {
 
 async function saveClient(id) {
   const name = document.getElementById(`clName-${id}`).value.trim();
+  const phone = document.getElementById(`clPhone-${id}`).value.trim();
   const visit_count = Number(document.getElementById(`clVisits-${id}`).value);
   const points_balance = Number(document.getElementById(`clPoints-${id}`).value);
   const vipInput = document.getElementById(`clVipPercent-${id}`).value.trim();
   const points_percent_override = vipInput === "" ? null : Number(vipInput);
   try {
-    await apiClients(`/${id}`, { method: "PUT", body: JSON.stringify({ name, visit_count, points_balance, points_percent_override }) });
+    await apiClients(`/${id}`, { method: "PUT", body: JSON.stringify({ name, phone, visit_count, points_balance, points_percent_override }) });
     await loadClientsList();
   } catch (err) {
     alert("Не удалось сохранить: " + err.message);
